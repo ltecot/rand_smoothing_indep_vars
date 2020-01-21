@@ -1,10 +1,11 @@
 # Test to maximize the "certification radius" of both smoothing methods.
 # Similar to mnist_train but modified to optimize sigmas instead.
 
+from __future__ import print_function
+
 from mnist_train import Net
 from smoothing import Smooth
 
-from __future__ import print_function
 import argparse
 import torch
 import torch.nn as nn
@@ -18,29 +19,54 @@ parser = argparse.ArgumentParser(description='Optimize and compare certified rad
 # parser.add_argument("base_classifier", type=str, help="path to saved pytorch model of base classifier")
 # parser.add_argument("sigma", type=float, help="noise hyperparameter")
 # parser.add_argument("outfile", type=str, help="output file")
-parser.add_argument("--batch", type=int, default=1000, help="batch size")
+# parser.add_argument("--batch", type=int, default=1000, help="batch size")
 # parser.add_argument("--skip", type=int, default=1, help="how many examples to skip")
 # parser.add_argument("--max", type=int, default=-1, help="stop after this many examples")
 # parser.add_argument("--split", choices=["train", "test"], default="test", help="train or test set")
 parser.add_argument("--N0", type=int, default=100)
 parser.add_argument("--N", type=int, default=100000, help="number of samples to use")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
+
+# parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
+parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+                    help='input batch size for training (default: 64)')
+parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
+                    help='input batch size for testing (default: 1000)')
+parser.add_argument('--epochs', type=int, default=14, metavar='N',
+                    help='number of epochs to train (default: 14)')
+parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
+                    help='learning rate (default: 1.0)')
+parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
+                    help='Learning rate step gamma (default: 0.7)')
+parser.add_argument('--no-cuda', action='store_true', default=False,
+                    help='disables CUDA training')
+parser.add_argument('--seed', type=int, default=1, metavar='S',
+                    help='random seed (default: 1)')
+parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+                    help='how many batches to wait before logging training status')
+parser.add_argument('--save-model', action='store_true', default=False,
+                    help='For Saving the current Model')
+# args = parser.parse_args()
+
 args = parser.parse_args()
 
 def load_mnist_model():
     model = Net()
     model.load_state_dict(torch.load('mnist_cnn.pt'))
 
-def train(args, model, device, train_loader, optimizer, epoch, N0, N, alpha, batch):
+def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
+        print(data.shape)
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         # output = model(data)
-        prediction, radius = smoothed_classifier.certify(data, N0, N, alpha, batch)
+        smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.1)
+        prediction, radius = smoothed_classifier.certify(data, args.N0, args.N, args.alpha, args.batch_size)
         # loss = F.nll_loss(output, target)
         # TODO: Change to remove instances where the predicted class is wrong.
         loss = -radius
+        # print(radius)
         loss.backward()
         optimizer.step()
         if batch_idx % args.log_interval == 0:
@@ -67,31 +93,11 @@ def test(args, model, device, test_loader):
     # print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
     #     test_loss, correct, len(test_loader.dataset),
     #     100. * correct / len(test_loader.dataset)))
-    print('\nTest set: Average radius: {:.4f}'.format(test_loss)
+    print('\nTest set: Average radius: {:.4f}'.format(test_loss))
 
 def main():
     # Training settings
-    parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-    parser.add_argument('--batch-size', type=int, default=64, metavar='N',
-                        help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
-                        help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=14, metavar='N',
-                        help='number of epochs to train (default: 14)')
-    parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
-                        help='learning rate (default: 1.0)')
-    parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
-                        help='Learning rate step gamma (default: 0.7)')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
-                        help='disables CUDA training')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='random seed (default: 1)')
-    parser.add_argument('--log-interval', type=int, default=10, metavar='N',
-                        help='how many batches to wait before logging training status')
-
-    parser.add_argument('--save-model', action='store_true', default=False,
-                        help='For Saving the current Model')
-    args = parser.parse_args()
+    
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
     torch.manual_seed(args.seed)
@@ -116,16 +122,19 @@ def main():
     # model = Net().to(device)
     # optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
     model = Net().to(device)
-    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+    model.load_state_dict(torch.load('mnist_cnn.pt'))
+    smoother = Smooth(model, num_classes=10, sigma=0.1)
+    optimizer = optim.Adadelta([smoother.sigma], lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
+        # train(args, model, device, train_loader, optimizer, epoch)
         train(args, model, device, train_loader, optimizer, epoch)
         test(args, model, device, test_loader)
         scheduler.step()
 
-    if args.save_model:
-        torch.save(model.state_dict(), "mnist_cnn.pt")
+    # if args.save_model:
+    #     torch.save(model.state_dict(), "mnist_cnn.pt")
 
 
 if __name__ == '__main__':

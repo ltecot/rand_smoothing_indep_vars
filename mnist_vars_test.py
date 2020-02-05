@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='Optimize and compare certified rad
 # parser.add_argument("base_classifier", type=str, help="path to saved pytorch model of base classifier")
 # parser.add_argument("sigma", type=float, help="noise hyperparameter")
 # parser.add_argument("outfile", type=str, help="output file")
-# parser.add_argument("--batch", type=int, default=1000, help="batch size")
+parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
 # parser.add_argument("--skip", type=int, default=1, help="how many examples to skip")
 # parser.add_argument("--max", type=int, default=-1, help="stop after this many examples")
 # parser.add_argument("--split", choices=["train", "test"], default="test", help="train or test set")
@@ -28,9 +28,10 @@ parser.add_argument("--N", type=int, default=100000, help="number of samples to 
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
 
 # parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+# Batch sizes need to be one for now, smoothing class can't handle more at the moment.
+parser.add_argument('--batch-size', type=int, default=1, metavar='N',  # 64
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
+parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=14, metavar='N',
                     help='number of epochs to train (default: 14)')
@@ -57,12 +58,14 @@ def load_mnist_model():
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        print(data.shape)
+        data = data[0]
+        # print(data.shape)
+        # print(target.shape)
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         # output = model(data)
         smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.1)
-        prediction, radius = smoothed_classifier.certify(data, args.N0, args.N, args.alpha, args.batch_size)
+        prediction, radius = smoothed_classifier.certify_training(data, args.N0, args.N, args.alpha, args.batch_smooth, target)
         # loss = F.nll_loss(output, target)
         # TODO: Change to remove instances where the predicted class is wrong.
         loss = -radius

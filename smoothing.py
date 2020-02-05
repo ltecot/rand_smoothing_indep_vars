@@ -81,9 +81,9 @@ class Smooth(object):
         # else:
         # radius = self.sigma * norm.ppf(pABar)
         # print(nA, n)
-        radius = self.sigma # * (nA / n)  # TODO: Fix this. Should be hinge loss on the quantile of the binomal
+        radius = self.sigma * (nA / n)  # TODO: Fix this. Should be hinge loss on the quantile of the binomal
         # return cAHat, radius
-        return radius
+        return radius, (nA / n)
 
     def predict(self, x: torch.tensor, n: int, alpha: float, batch_size: int) -> int:
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the

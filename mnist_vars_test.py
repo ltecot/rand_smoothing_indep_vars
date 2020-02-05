@@ -55,7 +55,7 @@ def load_mnist_model():
     model = Net()
     model.load_state_dict(torch.load('mnist_cnn.pt'))
 
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data = data[0]
@@ -64,20 +64,24 @@ def train(args, model, device, train_loader, optimizer, epoch):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         # output = model(data)
-        smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.01)
-        radius = smoothed_classifier.certify_training(data, args.N0, args.N, args.alpha, args.batch_smooth, target)
+        # smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.01)
+        radius, percent = smoothed_classifier.certify_training(data, args.N0, args.N, args.alpha, args.batch_smooth, target)
         # loss = F.nll_loss(output, target)
         # TODO: Change to remove instances where the predicted class is wrong.
         loss = -radius
         # print(radius)
         loss.backward()
+        # print(smoothed_classifier.sigma.grad)
+        # print(model.parameters)
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
+            print("percent: ", percent)
+            print("sigma: ", smoothed_classifier.sigma)
 
-def test(args, model, device, test_loader):
+def test(args, model, smoothed_classifier, device, test_loader):
     model.eval()
     test_loss = 0
     correct = 0
@@ -132,8 +136,8 @@ def main():
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
         # train(args, model, device, train_loader, optimizer, epoch)
-        train(args, model, device, train_loader, optimizer, epoch)
-        test(args, model, device, test_loader)
+        train(args, model, smoother, device, train_loader, optimizer, epoch)
+        test(args, model, smoother, device, test_loader)
         scheduler.step()
 
     # if args.save_model:

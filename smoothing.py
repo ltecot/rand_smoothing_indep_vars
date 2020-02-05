@@ -22,7 +22,7 @@ class Smooth(object):
         self.base_classifier = base_classifier
         self.num_classes = num_classes
         # self.sigma = sigma
-        self.sigma = torch.tensor(sigma)
+        self.sigma = torch.tensor(sigma, requires_grad=True)
 
     def certify(self, x: torch.tensor, n0: int, n: int, alpha: float, batch_size: int) -> (int, float):
         """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
@@ -69,9 +69,9 @@ class Smooth(object):
         # counts_selection = self._sample_noise(x, n0, batch_size)
         # use these samples to take a guess at the top class
         # cAHat = counts_selection.argmax().item()
-        cAHat = truth_label[0]  # Use training data instead of guessing what should be optimized
+        # cAHat = truth_label[0]  # Use training data instead of guessing what should be optimized
         # draw more samples of f(x + epsilon)
-        counts_estimation = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label)
+        counts_estimation = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label[0])
         # use these samples to estimate a lower bound on pA
         # nA = counts_estimation[cAHat].item()
         nA = counts_estimation[0]
@@ -79,8 +79,11 @@ class Smooth(object):
         # if pABar < 0.5:
         #     return Smooth.ABSTAIN, 0.0
         # else:
-        radius = self.sigma * norm.ppf(pABar)
-        return cAHat, radius
+        # radius = self.sigma * norm.ppf(pABar)
+        # print(nA, n)
+        radius = self.sigma # * (nA / n)  # TODO: Fix this. Should be hinge loss on the quantile of the binomal
+        # return cAHat, radius
+        return radius
 
     def predict(self, x: torch.tensor, n: int, alpha: float, batch_size: int) -> int:
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the

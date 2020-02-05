@@ -64,8 +64,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         # output = model(data)
-        smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.1)
-        prediction, radius = smoothed_classifier.certify_training(data, args.N0, args.N, args.alpha, args.batch_smooth, target)
+        smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.01)
+        radius = smoothed_classifier.certify_training(data, args.N0, args.N, args.alpha, args.batch_smooth, target)
         # loss = F.nll_loss(output, target)
         # TODO: Change to remove instances where the predicted class is wrong.
         loss = -radius

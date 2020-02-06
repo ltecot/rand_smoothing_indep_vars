@@ -1,6 +1,7 @@
 # Original file from https://github.com/locuslab/smoothing/blob/master/code/core.py
 
 import torch
+from torch.distributions import Normal
 from scipy.stats import norm, binom_test
 import numpy as np
 from math import ceil
@@ -23,6 +24,8 @@ class Smooth(object):
         self.num_classes = num_classes
         # self.sigma = sigma
         self.sigma = torch.tensor(sigma, requires_grad=True)
+        self.unit_norm = Normal(torch.tensor([0.0]), torch.tensor([1.0]))
+        self.eps = 0.00001 # To prevent icdf from returning infinity.
 
     def certify(self, x: torch.tensor, n0: int, n: int, alpha: float, batch_size: int) -> (int, float):
         """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
@@ -52,6 +55,11 @@ class Smooth(object):
             radius = self.sigma * norm.ppf(pABar)
             return cAHat, radius
 
+    # TODO: Update docs
+    # TODO: Maybe should keep in the if statement at the end. Might cause issues with gradient
+    #       to cut off variables that go below the threshold
+    # Because the real certify percent estimate is bounded in number of samples with this value used
+    # in training, should be fine.
     def certify_training(self, x: torch.tensor, n0: int, n: int, alpha: float, batch_size: int, truth_label) -> (int, float):
         """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
         With probability at least 1 - alpha, the class returned by this method will equal g(x), and g's prediction will
@@ -74,16 +82,16 @@ class Smooth(object):
         counts_estimation = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label[0])
         # use these samples to estimate a lower bound on pA
         # nA = counts_estimation[cAHat].item()
-        nA = counts_estimation[0]
+        # nA = counts_estimation[0]
         # pABar = self._lower_confidence_bound(nA, n, alpha)
         # if pABar < 0.5:
         #     return Smooth.ABSTAIN, 0.0
         # else:
         # radius = self.sigma * norm.ppf(pABar)
         # print(nA, n)
-        radius = self.sigma * (nA / n)  # TODO: Fix this. Should be hinge loss on the quantile of the binomal
+        radius = self.sigma * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
         # return cAHat, radius
-        return radius, (nA / n)
+        return counts_estimation / n, self.unit_norm.icdf(counts_estimation / n - self.eps), radius
 
     def predict(self, x: torch.tensor, n: int, alpha: float, batch_size: int) -> int:
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
@@ -117,7 +125,7 @@ class Smooth(object):
             if not training:
                 counts = np.zeros(self.num_classes, dtype=int)
             else:
-                counts = np.zeros(1, dtype=int)
+                counts = torch.tensor(0.0)  # TODO: Not sure if it's ok to sum probabilities from each sample and not counts.
             for _ in range(ceil(num / batch_size)):
                 this_batch_size = min(batch_size, num)
                 num -= this_batch_size
@@ -128,7 +136,7 @@ class Smooth(object):
                 if not training:
                     counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)
                 else:
-                    counts[0] += torch.sum(predictions == truth_label)
+                    counts += torch.sum(predictions == truth_label)
             return counts
 
     def _count_arr(self, arr: np.ndarray, length: int) -> np.ndarray:

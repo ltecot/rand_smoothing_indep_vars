@@ -23,8 +23,9 @@ parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
 # parser.add_argument("--skip", type=int, default=1, help="how many examples to skip")
 # parser.add_argument("--max", type=int, default=-1, help="stop after this many examples")
 # parser.add_argument("--split", choices=["train", "test"], default="test", help="train or test set")
-parser.add_argument("--N0", type=int, default=100)
-parser.add_argument("--N", type=int, default=100000, help="number of samples to use")
+parser.add_argument("--N0", type=int, default=10) # 100
+parser.add_argument("--N", type=int, default=100, help="number of samples to use") # 100000
+parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
 
 # parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -65,7 +66,7 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         optimizer.zero_grad()
         # output = model(data)
         # smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.01)
-        radius, percent = smoothed_classifier.certify_training(data, args.N0, args.N, args.alpha, args.batch_smooth, target)
+        percent, icdf, radius= smoothed_classifier.certify_training(data, args.N0, args.N_train, args.alpha, args.batch_smooth, target)
         # loss = F.nll_loss(output, target)
         # TODO: Change to remove instances where the predicted class is wrong.
         loss = -radius
@@ -79,6 +80,7 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
             print("percent: ", percent)
+            print("icdf: ", icdf)
             print("sigma: ", smoothed_classifier.sigma)
 
 def test(args, model, smoothed_classifier, device, test_loader):
@@ -89,7 +91,7 @@ def test(args, model, smoothed_classifier, device, test_loader):
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             # output = model(data)
-            prediction, radius = smoothed_classifier.certify(data, N0, N, alpha, batch)
+            prediction, radius = smoothed_classifier.certify(data, args.N0, args.N, args.alpha, args.batch_smooth)
             # test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
             # pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             # correct += pred.eq(target.view_as(pred)).sum().item()

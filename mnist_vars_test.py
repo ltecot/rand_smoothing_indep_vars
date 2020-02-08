@@ -27,6 +27,8 @@ parser.add_argument("--N0", type=int, default=10) # 100
 parser.add_argument("--N", type=int, default=100, help="number of samples to use") # 100000
 parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
+parser.add_argument('--indep-vars', action='store_true', default=True,
+                    help='to use indep vars or not')
 
 # parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
 # Batch sizes need to be one for now, smoothing class can't handle more at the moment.
@@ -46,7 +48,7 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
-parser.add_argument('--save-model', action='store_true', default=False,
+parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
 # args = parser.parse_args()
 
@@ -132,7 +134,7 @@ def main():
     # optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
     model = Net().to(device)
     model.load_state_dict(torch.load('mnist_cnn.pt'))
-    smoother = Smooth(model, num_classes=10, sigma=0.1)
+    smoother = Smooth(model, num_classes=10, sigma=0.1, indep_vars=args.indep_vars, data_shape=[28, 28, 1])
     optimizer = optim.Adadelta([smoother.sigma], lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)

@@ -14,7 +14,7 @@ class Smooth(object):
     # to abstain, Smooth returns this int
     ABSTAIN = -1
 
-    def __init__(self, base_classifier: torch.nn.Module, num_classes: int, sigma: float):
+    def __init__(self, base_classifier: torch.nn.Module, num_classes: int, sigma: float, indep_vars=False, data_shape=None):
         """
         :param base_classifier: maps from [batch x channel x height x width] to [batch x num_classes]
         :param num_classes:
@@ -23,9 +23,13 @@ class Smooth(object):
         self.base_classifier = base_classifier
         self.num_classes = num_classes
         # self.sigma = sigma
-        self.sigma = torch.tensor(sigma, requires_grad=True)
+        if indep_vars:
+            self.sigma = sigma * torch.ones(data_shape, requires_grad=True)
+        else:
+            self.sigma = torch.tensor(sigma, requires_grad=True)
         self.unit_norm = Normal(torch.tensor([0.0]), torch.tensor([1.0]))
-        self.eps = 0.00001 # To prevent icdf from returning infinity.
+        self.eps = 0.000001 # To prevent icdf from returning infinity.
+        self.indep_vars = indep_vars
 
     def certify(self, x: torch.tensor, n0: int, n: int, alpha: float, batch_size: int) -> (int, float):
         """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
@@ -52,7 +56,10 @@ class Smooth(object):
         if pABar < 0.5:
             return Smooth.ABSTAIN, 0.0
         else:
-            radius = self.sigma * norm.ppf(pABar)
+            if self.indep_vars:
+                radius = torch.norm(self.sigma, p=2) * norm.ppf(pABar)
+            else:
+                radius = self.sigma * norm.ppf(pABar)
             return cAHat, radius
 
     # TODO: Update docs
@@ -89,7 +96,10 @@ class Smooth(object):
         # else:
         # radius = self.sigma * norm.ppf(pABar)
         # print(nA, n)
-        radius = self.sigma * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
+        if self.indep_vars:
+            radius = torch.norm(self.sigma, p=2) * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
+        else:
+            radius = self.sigma * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
         # return cAHat, radius
         return counts_estimation / n, self.unit_norm.icdf(counts_estimation / n - self.eps), radius
 

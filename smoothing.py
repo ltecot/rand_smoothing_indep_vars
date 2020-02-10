@@ -24,7 +24,9 @@ class Smooth(object):
         self.num_classes = num_classes
         # self.sigma = sigma
         if indep_vars:
-            self.sigma = sigma * torch.ones(data_shape, requires_grad=True)
+            self.sigma = torch.ones(data_shape, requires_grad=True, device='cuda')
+            # with torch.no_grad():
+            #     self.sigma = sigma * self.sigma
         else:
             self.sigma = torch.tensor(sigma, requires_grad=True)
         self.unit_norm = Normal(torch.tensor([0.0]), torch.tensor([1.0]))
@@ -97,8 +99,10 @@ class Smooth(object):
         # radius = self.sigma * norm.ppf(pABar)
         # print(nA, n)
         if self.indep_vars:
+            # print(self.sigma.grad)
             radius = torch.norm(self.sigma, p=2) * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
         else:
+            # print(self.sigma.grad)
             radius = self.sigma * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
         # return cAHat, radius
         return counts_estimation / n, self.unit_norm.icdf(counts_estimation / n - self.eps), radius
@@ -142,6 +146,9 @@ class Smooth(object):
 
                 batch = x.repeat((this_batch_size, 1, 1, 1))
                 noise = torch.randn_like(batch, device='cuda') * self.sigma
+                # print(self.sigma.shape)
+                # print(batch.shape)
+                # print(noise.shape)
                 predictions = self.base_classifier(batch + noise).argmax(1)
                 if not training:
                     counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)

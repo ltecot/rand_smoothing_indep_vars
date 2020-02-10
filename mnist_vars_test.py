@@ -27,7 +27,7 @@ parser.add_argument("--N0", type=int, default=10) # 100
 parser.add_argument("--N", type=int, default=100, help="number of samples to use") # 100000
 parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
-parser.add_argument('--indep-vars', action='store_true', default=True,
+parser.add_argument('--indep-vars', action='store_true', default=False,
                     help='to use indep vars or not')
 
 # parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
@@ -134,7 +134,7 @@ def main():
     # optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
     model = Net().to(device)
     model.load_state_dict(torch.load('mnist_cnn.pt'))
-    smoother = Smooth(model, num_classes=10, sigma=0.1, indep_vars=args.indep_vars, data_shape=[28, 28, 1])
+    smoother = Smooth(model, num_classes=10, sigma=0.1, indep_vars=args.indep_vars, data_shape=[1, 28, 28])
     optimizer = optim.Adadelta([smoother.sigma], lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)

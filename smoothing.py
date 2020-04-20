@@ -1,4 +1,6 @@
 # Original file from https://github.com/locuslab/smoothing/blob/master/code/core.py
+# TODO: Look at gradients. The _sample_noise function uses argmax, so it might just be that
+# the gradient for sigma decreases but is never negative.
 
 import torch
 from torch.distributions import Normal
@@ -25,7 +27,10 @@ class Smooth(object):
         # self.sigma = sigma
         if indep_vars:
             # self.sigma = torch.ones(data_shape, requires_grad=True, device='cuda')
-            self.sigma = torch.ones(data_shape, requires_grad=True)
+            # self.sigma = torch.ones(data_shape, requires_grad=True)
+            # self.sigma = torch.from_numpy(sigma * np.ones(data_shape)).float().cuda()
+            self.sigma = torch.tensor(sigma * np.ones(data_shape), dtype=torch.float, device='cuda', requires_grad=True)
+            # print(self.sigma.type())
             # with torch.no_grad():
             #     self.sigma = sigma * self.sigma
         else:
@@ -102,7 +107,7 @@ class Smooth(object):
         # print(nA, n)
         if self.indep_vars:
             # print(self.sigma.grad)
-            radius = torch.norm(self.sigma, p=2) * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
+            radius = torch.norm(self.sigma, p=2).cuda() * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
         else:
             # print(self.sigma.grad)
             radius = self.sigma * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
@@ -130,6 +135,7 @@ class Smooth(object):
         else:
             return top2[0]
 
+    # TODO: Also update docs here, different return behavior for training
     def _sample_noise(self, x: torch.tensor, num: int, batch_size, training=False, truth_label=None) -> np.ndarray:
         """ Sample the base classifier's prediction under noisy corruptions of the input x.
         :param x: the input [channel x width x height]
@@ -141,13 +147,16 @@ class Smooth(object):
             if not training:
                 counts = np.zeros(self.num_classes, dtype=int)
             else:
-                counts = torch.tensor(0.0)  # TODO: Not sure if it's ok to sum probabilities from each sample and not counts.
+                counts = torch.tensor(0.0).cuda()
             for _ in range(ceil(num / batch_size)):
                 this_batch_size = min(batch_size, num)
                 num -= this_batch_size
 
                 batch = x.repeat((this_batch_size, 1, 1, 1))
+                # print(batch.type())
                 # noise = torch.randn_like(batch, device='cuda') * self.sigma
+                # print(torch.randn_like(batch).get_device())
+                # print(self.sigma.get_device())
                 noise = torch.randn_like(batch) * self.sigma
                 # print(self.sigma.shape)
                 # print(batch.shape)

@@ -27,7 +27,7 @@ parser.add_argument("--N0", type=int, default=10) # 100
 parser.add_argument("--N", type=int, default=100, help="number of samples to use") # 100000
 parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
-parser.add_argument('--indep-vars', action='store_true', default=False,
+parser.add_argument('--indep-vars', action='store_true', default=True,
                     help='to use indep vars or not')
 
 # parser = argparse.ArgumentParser(description='PyTorch MNIST Example')

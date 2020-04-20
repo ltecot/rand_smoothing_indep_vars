@@ -32,7 +32,7 @@ parser.add_argument('--indep-vars', action='store_true', default=False,
 
 # parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
 # Batch sizes need to be one for now, smoothing class can't handle more at the moment.
-parser.add_argument('--batch-size', type=int, default=1, metavar='N',  # 64
+parser.add_argument('--batch-size', type=int, default=64, metavar='N',  # 64
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
                     help='input batch size for testing (default: 1000)')
@@ -61,17 +61,24 @@ def load_mnist_model():
 def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        data = data[0]
+        # data = data[0]
         # print(data.shape)
         # print(target.shape)
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         # output = model(data)
         # smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.01)
-        percent, icdf, radius= smoothed_classifier.certify_training(data, args.N0, args.N_train, args.alpha, args.batch_smooth, target)
+        summed_radius = 0
+        avg_percent = 0
+        for i in range(data.shape[0]):
+            percent, icdf, radius= smoothed_classifier.certify_training(data[i], args.N0, args.N_train, args.alpha, args.batch_smooth, target[i])
+            summed_radius += radius
+            avg_percent += percent
+        avg_percent /= data.shape[0]
         # loss = F.nll_loss(output, target)
         # TODO: Change to remove instances where the predicted class is wrong.
-        loss = -radius
+        # loss = -radius
+        loss = -summed_radius
         # print(radius)
         loss.backward()
         # print(smoothed_classifier.sigma.grad)
@@ -81,8 +88,8 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
-            print("percent: ", percent)
-            print("icdf: ", icdf)
+            print("percent: ", avg_percent)
+            # print("icdf: ", icdf)
             print("sigma: ", smoothed_classifier.sigma)
 
 def test(args, model, smoothed_classifier, device, test_loader):

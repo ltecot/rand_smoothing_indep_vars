@@ -24,11 +24,13 @@ class Smooth(object):
         self.num_classes = num_classes
         # self.sigma = sigma
         if indep_vars:
-            self.sigma = torch.ones(data_shape, requires_grad=True, device='cuda')
+            # self.sigma = torch.ones(data_shape, requires_grad=True, device='cuda')
+            self.sigma = torch.ones(data_shape, requires_grad=True)
             # with torch.no_grad():
             #     self.sigma = sigma * self.sigma
         else:
             self.sigma = torch.tensor(sigma, requires_grad=True)
+            # self.sigma = torch.tensor(sigma, requires_grad=True, device='cuda')
         self.unit_norm = Normal(torch.tensor([0.0]), torch.tensor([1.0]))
         self.eps = 0.000001 # To prevent icdf from returning infinity.
         self.indep_vars = indep_vars
@@ -88,7 +90,7 @@ class Smooth(object):
         # cAHat = counts_selection.argmax().item()
         # cAHat = truth_label[0]  # Use training data instead of guessing what should be optimized
         # draw more samples of f(x + epsilon)
-        counts_estimation = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label[0])
+        counts_estimation = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label)
         # use these samples to estimate a lower bound on pA
         # nA = counts_estimation[cAHat].item()
         # nA = counts_estimation[0]
@@ -145,7 +147,8 @@ class Smooth(object):
                 num -= this_batch_size
 
                 batch = x.repeat((this_batch_size, 1, 1, 1))
-                noise = torch.randn_like(batch, device='cuda') * self.sigma
+                # noise = torch.randn_like(batch, device='cuda') * self.sigma
+                noise = torch.randn_like(batch) * self.sigma
                 # print(self.sigma.shape)
                 # print(batch.shape)
                 # print(noise.shape)

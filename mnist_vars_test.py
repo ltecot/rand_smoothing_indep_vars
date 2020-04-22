@@ -38,7 +38,7 @@ parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 100
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=14, metavar='N',
                     help='number of epochs to train (default: 14)')
-parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
+parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
                     help='learning rate (default: 1.0)')
 parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
                     help='Learning rate step gamma (default: 0.7)')
@@ -61,6 +61,8 @@ def load_mnist_model():
 def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
+        # if (smoothed_classifier.sigma != smoothed_classifier.sigma).any():
+        #     print(smoothed_classifier.sigma)
         # data = data[0]
         # print(data.shape)
         # print(target.shape)
@@ -68,17 +70,21 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         optimizer.zero_grad()
         # output = model(data)
         # smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.01)
-        summed_radius = 0
+        avg_radius = 0
         avg_percent = 0
+        avg_icdf = 0
         for i in range(data.shape[0]):
-            percent, icdf, radius= smoothed_classifier.certify_training(data[i], args.N0, args.N_train, args.alpha, args.batch_smooth, target[i])
-            summed_radius += radius
+            percent, icdf, radius = smoothed_classifier.certify_training(data[i], args.N0, args.N_train, args.alpha, args.batch_smooth, target[i])
+            avg_radius += radius
             avg_percent += percent
+            avg_icdf += icdf
         avg_percent /= data.shape[0]
+        avg_radius /= data.shape[0]
+        avg_icdf /= data.shape[0]
         # loss = F.nll_loss(output, target)
         # TODO: Change to remove instances where the predicted class is wrong.
         # loss = -radius
-        loss = -summed_radius
+        loss = -avg_radius
         # print(radius)
         loss.backward()
         # print(smoothed_classifier.sigma.grad)
@@ -88,9 +94,15 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
-            print("percent: ", avg_percent)
-            # print("icdf: ", icdf)
-            print("sigma: ", smoothed_classifier.sigma)
+            print('Percent: {:.5f} \t sigma mean: {:.5f} \t sigma stddev: {:.5f}'.format(
+                avg_percent.item(), 
+                smoothed_classifier.sigma.mean().item(),
+                smoothed_classifier.sigma.std().item()))
+            # print("percent: ", avg_percent.item())
+            # print("icdf: ", avg_icdf)
+            # # print("sigma: ", smoothed_classifier.sigma)
+            # print("sigma mean: ", smoothed_classifier.sigma.mean().item())
+            # print("sigma stddev: ", smoothed_classifier.sigma.std().item())
 
 def test(args, model, smoothed_classifier, device, test_loader):
     model.eval()

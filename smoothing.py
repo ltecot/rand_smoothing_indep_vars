@@ -37,7 +37,7 @@ class Smooth(object):
             self.sigma = torch.tensor(sigma, requires_grad=True)
             # self.sigma = torch.tensor(sigma, requires_grad=True, device='cuda')
         self.unit_norm = Normal(torch.tensor([0.0]), torch.tensor([1.0]))
-        self.eps = 0.000001 # To prevent icdf from returning infinity.
+        self.eps = 0.0000001 # To prevent icdf from returning infinity.
         self.indep_vars = indep_vars
 
     def certify(self, x: torch.tensor, n0: int, n: int, alpha: float, batch_size: int) -> (int, float):
@@ -105,14 +105,17 @@ class Smooth(object):
         # else:
         # radius = self.sigma * norm.ppf(pABar)
         # print(nA, n)
+        # print(counts_estimation.grad)
+        # print(counts_estimation / n)
         if self.indep_vars:
             # print(self.sigma.grad)
-            radius = torch.norm(self.sigma, p=2).cuda() * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
+            # print(self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps)).type())
+            radius = torch.norm(self.sigma, p=2).cuda() * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps)).cuda()
         else:
             # print(self.sigma.grad)
-            radius = self.sigma * self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps))
+            radius = self.sigma * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps))
         # return cAHat, radius
-        return counts_estimation / n, self.unit_norm.icdf(counts_estimation / n - self.eps), radius
+        return counts_estimation / n, self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps)), radius
 
     def predict(self, x: torch.tensor, n: int, alpha: float, batch_size: int) -> int:
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
@@ -136,6 +139,10 @@ class Smooth(object):
             return top2[0]
 
     # TODO: Also update docs here, different return behavior for training
+    # TODO: Note that MNIST uses log_softmax so we have to apply exp. Maybe change to more general later.
+    #       Maybe just normalize the scores to between 0 and 1, no matter what their distribution.
+    #       Note in MACER they bounded the expectation to the real lower conf bound via Hoeffding.
+    #       So we can probably just sum the probabilities because that is an approximate measure.
     def _sample_noise(self, x: torch.tensor, num: int, batch_size, training=False, truth_label=None) -> np.ndarray:
         """ Sample the base classifier's prediction under noisy corruptions of the input x.
         :param x: the input [channel x width x height]
@@ -160,12 +167,21 @@ class Smooth(object):
                 noise = torch.randn_like(batch) * self.sigma
                 # print(self.sigma.shape)
                 # print(batch.shape)
-                # print(noise.shape)
-                predictions = self.base_classifier(batch + noise).argmax(1)
+                # print(noise.type())
+                # print(torch.exp(self.base_classifier(batch + noise)))
+                # predictions = self.base_classifier(batch + noise).argmax(1)
+                output = self.base_classifier(batch + noise)
+                predictions = output.argmax(1)
                 if not training:
                     counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)
                 else:
-                    counts += torch.sum(predictions == truth_label)
+                    # For now we'll just sum the probs from the truth label class
+                    # counts += torch.sum(predictions == truth_label)
+                    # print(torch.sum(torch.exp(output[:, truth_label])))
+                    # if (output[:, truth_label] != output[:, truth_label]).any():
+                    #     print(output[:, truth_label])
+                    counts += torch.sum(torch.exp(output[:, truth_label]))
+                # print(counts.type())
             return counts
 
     def _count_arr(self, arr: np.ndarray, length: int) -> np.ndarray:

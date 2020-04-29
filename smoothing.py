@@ -1,6 +1,4 @@
 # Original file from https://github.com/locuslab/smoothing/blob/master/code/core.py
-# TODO: Look at gradients. The _sample_noise function uses argmax, so it might just be that
-# the gradient for sigma decreases but is never negative.
 
 import torch
 from torch.distributions import Normal
@@ -24,18 +22,10 @@ class Smooth(object):
         """
         self.base_classifier = base_classifier
         self.num_classes = num_classes
-        # self.sigma = sigma
         if indep_vars:
-            # self.sigma = torch.ones(data_shape, requires_grad=True, device='cuda')
-            # self.sigma = torch.ones(data_shape, requires_grad=True)
-            # self.sigma = torch.from_numpy(sigma * np.ones(data_shape)).float().cuda()
             self.sigma = torch.tensor(sigma * np.ones(data_shape), dtype=torch.float, device='cuda', requires_grad=True)
-            # print(self.sigma.type())
-            # with torch.no_grad():
-            #     self.sigma = sigma * self.sigma
         else:
             self.sigma = torch.tensor(sigma, requires_grad=True)
-            # self.sigma = torch.tensor(sigma, requires_grad=True, device='cuda')
         self.unit_norm = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
         self.eps = 0.0000001 # To prevent icdf from returning infinity.
         self.indep_vars = indep_vars
@@ -89,30 +79,10 @@ class Smooth(object):
                  in the case of abstention, the class will be ABSTAIN and the radius 0.
         """
         self.base_classifier.eval()
-        # draw samples of f(x+ epsilon)
-        # counts_selection = self._sample_noise(x, n0, batch_size)
-        # use these samples to take a guess at the top class
-        # cAHat = counts_selection.argmax().item()
-        # cAHat = truth_label[0]  # Use training data instead of guessing what should be optimized
-        # draw more samples of f(x + epsilon)
         counts_estimation = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label)
-        # use these samples to estimate a lower bound on pA
-        # nA = counts_estimation[cAHat].item()
-        # nA = counts_estimation[0]
-        # pABar = self._lower_confidence_bound(nA, n, alpha)
-        # if pABar < 0.5:
-        #     return Smooth.ABSTAIN, 0.0
-        # else:
-        # radius = self.sigma * norm.ppf(pABar)
-        # print(nA, n)
-        # print(counts_estimation.type())
-        # print(counts_estimation / n)
         if self.indep_vars:
-            # print(self.sigma.grad)
-            # print(self.unit_norm.icdf(torch.abs(counts_estimation / n - self.eps)).type())
             radius = torch.norm(self.sigma, p=2).cuda() * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps)).cuda()
         else:
-            # print(self.sigma.grad)
             radius = self.sigma * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps))
         # return cAHat, radius
         return counts_estimation / n, self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps)), radius
@@ -160,36 +130,13 @@ class Smooth(object):
             num -= this_batch_size
 
             batch = x.repeat((this_batch_size, 1, 1, 1))
-            # print(x.type())
-            # noise = torch.randn_like(batch, device='cuda') * self.sigma
-            # print(torch.randn_like(batch).shape)
-            # print(self.sigma.shape)
             noise = self.sigma * torch.randn_like(batch)
-            # print(self.sigma.type())
-            # print(batch.shape)
-            # print(noise.shape)
-            # x = torch.randn(5, 5)  # requires_grad=False by default
-            # y = torch.randn(5, 5)  # requires_grad=False by default
-            # z = torch.randn((5, 5), requires_grad=True)
-            # a = x + y
-            # b = a + z
-            # print(b.requires_grad)
-            # print(noise.requires_grad)
-            # print(torch.exp(self.base_classifier(batch + noise)))
-            # predictions = self.base_classifier(batch + noise).argmax(1)
             output = self.base_classifier(batch + noise)
-            # print(counts.type())
             predictions = output.argmax(1)
             if not training:
                 counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)
             else:
-                # For now we'll just sum the probs from the truth label class
-                # counts += torch.sum(predictions == truth_label)
-                # print(torch.sum(torch.exp(output[:, truth_label])))
-                # if (output[:, truth_label] != output[:, truth_label]).any():
-                #     print(output[:, truth_label])
                 counts += torch.sum(torch.exp(output[:, truth_label]))
-            # print(counts.type())
         return counts
 
     def _count_arr(self, arr: np.ndarray, length: int) -> np.ndarray:

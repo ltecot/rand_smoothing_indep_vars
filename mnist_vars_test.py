@@ -15,14 +15,7 @@ from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
 parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
-# parser.add_argument("dataset", choices=DATASETS, help="which dataset")
-# parser.add_argument("base_classifier", type=str, help="path to saved pytorch model of base classifier")
-# parser.add_argument("sigma", type=float, help="noise hyperparameter")
-# parser.add_argument("outfile", type=str, help="output file")
 parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
-# parser.add_argument("--skip", type=int, default=1, help="how many examples to skip")
-# parser.add_argument("--max", type=int, default=-1, help="stop after this many examples")
-# parser.add_argument("--split", choices=["train", "test"], default="test", help="train or test set")
 parser.add_argument("--N0", type=int, default=10) # 100
 parser.add_argument("--N", type=int, default=100, help="number of samples to use") # 100000
 parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
@@ -30,8 +23,6 @@ parser.add_argument("--alpha", type=float, default=0.001, help="failure probabil
 parser.add_argument('--indep-vars', action='store_true', default=True,
                     help='to use indep vars or not')
 
-# parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-# Batch sizes need to be one for now, smoothing class can't handle more at the moment.
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',  # 64
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
@@ -50,7 +41,6 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
-# args = parser.parse_args()
 
 args = parser.parse_args()
 
@@ -61,15 +51,8 @@ def load_mnist_model():
 def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        # if (smoothed_classifier.sigma != smoothed_classifier.sigma).any():
-        #     print(smoothed_classifier.sigma)
-        # data = data[0]
-        # print(data.shape)
-        # print(target.shape)
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        # output = model(data)
-        # smoothed_classifier = Smooth(base_classifier=model, num_classes=10, sigma=0.01)
         avg_radius = 0
         avg_percent = 0
         avg_icdf = 0
@@ -81,14 +64,9 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         avg_percent /= data.shape[0]
         avg_radius /= data.shape[0]
         avg_icdf /= data.shape[0]
-        # loss = F.nll_loss(output, target)
         # TODO: Change to remove instances where the predicted class is wrong.
-        # loss = -radius
         loss = -avg_radius
-        # print(radius)
         loss.backward()
-        # print(smoothed_classifier.sigma.grad)
-        # print(model.parameters)
         optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
@@ -98,11 +76,6 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
                 avg_percent.item(), 
                 smoothed_classifier.sigma.mean().item(),
                 smoothed_classifier.sigma.std().item()))
-            # print("percent: ", avg_percent.item())
-            # print("icdf: ", avg_icdf)
-            # # print("sigma: ", smoothed_classifier.sigma)
-            # print("sigma mean: ", smoothed_classifier.sigma.mean().item())
-            # print("sigma stddev: ", smoothed_classifier.sigma.std().item())
 
 def test(args, model, smoothed_classifier, device, test_loader):
     model.eval()
@@ -111,18 +84,9 @@ def test(args, model, smoothed_classifier, device, test_loader):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            # output = model(data)
             prediction, radius = smoothed_classifier.certify(data, args.N0, args.N, args.alpha, args.batch_smooth)
-            # test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
-            # pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
-            # correct += pred.eq(target.view_as(pred)).sum().item()
             test_loss += radius
-
     test_loss /= len(test_loader.dataset)
-
-    # print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-    #     test_loss, correct, len(test_loader.dataset),
-    #     100. * correct / len(test_loader.dataset)))
     print('\nTest set: Average radius: {:.4f}'.format(test_loss))
 
 def main():
@@ -149,8 +113,6 @@ def main():
                        ])),
         batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
-    # model = Net().to(device)
-    # optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
     model = Net().to(device)
     model.load_state_dict(torch.load('mnist_cnn.pt'))
     smoother = Smooth(model, num_classes=10, sigma=0.1, indep_vars=args.indep_vars, data_shape=[1, 28, 28])
@@ -158,13 +120,9 @@ def main():
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
-        # train(args, model, device, train_loader, optimizer, epoch)
         train(args, model, smoother, device, train_loader, optimizer, epoch)
         test(args, model, smoother, device, test_loader)
         scheduler.step()
-
-    # if args.save_model:
-    #     torch.save(model.state_dict(), "mnist_cnn.pt")
 
 
 if __name__ == '__main__':

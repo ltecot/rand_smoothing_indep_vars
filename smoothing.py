@@ -25,7 +25,7 @@ class Smooth(object):
         if indep_vars:
             self.sigma = torch.tensor(sigma * np.ones(data_shape), dtype=torch.float, device='cuda', requires_grad=True)
         else:
-            self.sigma = torch.tensor(sigma, requires_grad=True)
+            self.sigma = torch.tensor(sigma, device='cuda', requires_grad=True)
         self.unit_norm = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
         self.eps = 0.0000001 # To prevent icdf from returning infinity.
         self.indep_vars = indep_vars

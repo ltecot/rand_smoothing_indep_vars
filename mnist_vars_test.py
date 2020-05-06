@@ -19,20 +19,20 @@ from torch.utils.tensorboard import SummaryWriter
 
 parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
 parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
-parser.add_argument("--N0", type=int, default=10) # 100
-parser.add_argument("--N", type=int, default=100, help="number of samples to use") # 100000
+parser.add_argument("--N0", type=int, default=100) # 100
+parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
 parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
-parser.add_argument('--indep-vars', action='store_true', default=True,
+parser.add_argument('--indep-vars', action='store_true', default=False,
                     help='to use indep vars or not')
 
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
-                    help='input batch size for testing (default: 1000)')
+# parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
+#                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=14, metavar='N',
                     help='number of epochs to train (default: 14)')
-parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
+parser.add_argument('--lr', type=float, default=2.0, metavar='LR',
                     help='learning rate (default: 1.0)')
 parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
                     help='Learning rate step gamma (default: 0.7)')
@@ -46,7 +46,8 @@ parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
 
 args = parser.parse_args()
-writer = SummaryWriter()
+filename_suffix = 'multiple_sigma' if args.indep_vars else 'single_sigma'
+writer = SummaryWriter(filename_suffix=filename_suffix)
 
 def load_mnist_model():
     model = Net()
@@ -94,7 +95,9 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch):
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            prediction, percent, radius = smoothed_classifier.certify(data, args.N0, args.N, args.alpha, args.batch_smooth)
+            # print(data.shape)
+            # print(target.shape)
+            prediction, percent, radius = smoothed_classifier.certify(data[0], args.N0, args.N, args.alpha, args.batch_smooth)
             # test_loss += radius
             avg_radius += radius
             avg_percent += percent
@@ -110,12 +113,13 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch):
         writer.add_scalar('Radius/test', avg_radius, epoch-1)
         writer.add_scalar('Percent/test', avg_percent, epoch-1)
         writer.add_scalar('Sigma_Mean', smoothed_classifier.sigma.mean(), epoch-1)
-        sigma_img = smoothed_classifier.sigma - smoothed_classifier.sigma.min()
-        sigma_img = sigma_img / sigma_img.max()
-        writer.add_image('Sigma', sigma_img, epoch-1)
-        save_image(sigma_img[0], 'gen_files/sigma_viz.png')
-        # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
-        print(smoothed_classifier.sigma)
+        if args.indep_vars:
+            sigma_img = smoothed_classifier.sigma - smoothed_classifier.sigma.min()
+            sigma_img = sigma_img / sigma_img.max()
+            writer.add_image('Sigma', sigma_img, epoch-1)
+            save_image(sigma_img[0], 'gen_files/sigma_viz.png')
+            # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
+        # print(smoothed_classifier.sigma)
 
 def main():
     # Training settings
@@ -139,7 +143,8 @@ def main():
                            transforms.ToTensor(),
                            transforms.Normalize((0.1307,), (0.3081,))
                        ])),
-        batch_size=args.test_batch_size, shuffle=True, **kwargs)
+        batch_size=1, shuffle=True, **kwargs)  # Smoothing only can handle one at a time anyways right now
+        # batch_size=args.test_batch_size, shuffle=True, **kwargs)
 
     model = Net().to(device)
     model.load_state_dict(torch.load('mnist_cnn.pt'))

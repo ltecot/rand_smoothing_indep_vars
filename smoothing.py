@@ -53,17 +53,15 @@ class Smooth(object):
         nA = counts_estimation[cAHat].item()
         pABar = self._lower_confidence_bound(nA, n, alpha)
         if pABar < 0.5:
-            return Smooth.ABSTAIN, 0.0
+            return Smooth.ABSTAIN, 0.0, 0.0
         else:
             if self.indep_vars:
                 radius = torch.norm(self.sigma, p=2) * norm.ppf(pABar)
             else:
                 radius = self.sigma * norm.ppf(pABar)
-            return cAHat, radius
+            return cAHat, pABar, radius
 
     # TODO: Update docs
-    # TODO: Maybe should keep in the if statement at the end. Might cause issues with gradient
-    #       to cut off variables that go below the threshold
     # Because the real certify percent estimate is bounded in number of samples with this value used
     # in training, should be fine.
     def certify_training(self, x: torch.tensor, n0: int, n: int, alpha: float, batch_size: int, truth_label) -> (int, float):
@@ -85,7 +83,7 @@ class Smooth(object):
         else:
             radius = self.sigma * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps))
         # return cAHat, radius
-        return counts_estimation / n, self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps)), radius
+        return counts_estimation / n, radius
 
     def predict(self, x: torch.tensor, n: int, alpha: float, batch_size: int) -> int:
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
@@ -110,9 +108,6 @@ class Smooth(object):
 
     # TODO: Also update docs here, different return behavior for training
     # TODO: Note that MNIST uses log_softmax so we have to apply exp. Maybe change to more general later.
-    #       Maybe just normalize the scores to between 0 and 1, no matter what their distribution.
-    #       Note in MACER they bounded the expectation to the real lower conf bound via Hoeffding.
-    #       So we can probably just sum the probabilities because that is an approximate measure.
     def _sample_noise(self, x: torch.tensor, num: int, batch_size, training=False, truth_label=None) -> np.ndarray:
         """ Sample the base classifier's prediction under noisy corruptions of the input x.
         :param x: the input [channel x width x height]

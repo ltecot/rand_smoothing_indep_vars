@@ -12,7 +12,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
+from torchvision.utils import save_image
 from torch.optim.lr_scheduler import StepLR
+import matplotlib.pyplot as plt
+from torch.utils.tensorboard import SummaryWriter
 
 parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
 parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
@@ -43,6 +46,7 @@ parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
 
 args = parser.parse_args()
+writer = SummaryWriter()
 
 def load_mnist_model():
     model = Net()
@@ -55,19 +59,20 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         optimizer.zero_grad()
         avg_radius = 0
         avg_percent = 0
-        avg_icdf = 0
+        # avg_icdf = 0
         for i in range(data.shape[0]):
-            percent, icdf, radius = smoothed_classifier.certify_training(data[i], args.N0, args.N_train, args.alpha, args.batch_smooth, target[i])
+            percent, radius = smoothed_classifier.certify_training(data[i], args.N0, args.N_train, args.alpha, args.batch_smooth, target[i])
             avg_radius += radius
             avg_percent += percent
-            avg_icdf += icdf
+            # avg_icdf += icdf
         avg_percent /= data.shape[0]
         avg_radius /= data.shape[0]
-        avg_icdf /= data.shape[0]
-        # TODO: Change to remove instances where the predicted class is wrong.
+        # avg_icdf /= data.shape[0]
+        # TODO: Change to remove instances where the predicted class is wrong. Maybe ok to keep?
         loss = -avg_radius
         loss.backward()
         optimizer.step()
+        
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -76,18 +81,36 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
                 avg_percent.item(), 
                 smoothed_classifier.sigma.mean().item(),
                 smoothed_classifier.sigma.std().item()))
+    # Write last radius and percent to tensorboard
+    writer.add_scalar('Radius/train', avg_radius, epoch-1)
+    writer.add_scalar('Percent/train', avg_percent, epoch-1)
 
-def test(args, model, smoothed_classifier, device, test_loader):
+def test(args, model, smoothed_classifier, device, test_loader, epoch):
     model.eval()
-    test_loss = 0
+    # test_loss = 0
+    avg_radius = 0
+    avg_percent = 0
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            prediction, radius = smoothed_classifier.certify(data, args.N0, args.N, args.alpha, args.batch_smooth)
-            test_loss += radius
-    test_loss /= len(test_loader.dataset)
-    print('\nTest set: Average radius: {:.4f}'.format(test_loss))
+            prediction, percent, radius = smoothed_classifier.certify(data, args.N0, args.N, args.alpha, args.batch_smooth)
+            # test_loss += radius
+            avg_radius += radius
+            avg_percent += percent
+        # test_loss /= len(test_loader.dataset)
+        avg_radius /= len(test_loader.dataset)
+        avg_percent /= len(test_loader.dataset)
+        print('\nAverage Test upper bound: {:.4f}'.format(avg_radius))
+        print('Sigma avg: {:.4f}\n'.format(smoothed_classifier.sigma.mean()))
+        # print('Sigma:')
+        # print(smoothed_classifier.sigma)
+        # plt.imshow(smoothed_classifier.sigma[0].cpu().numpy())
+        save_image(smoothed_classifier.sigma[0], 'gen_files/sigma_viz.png')
+        writer.add_scalar('Radius/test', avg_radius, epoch-1)
+        writer.add_scalar('Percent/test', avg_percent, epoch-1)
+        writer.add_scalar('Sigma_Mean', smoothed_classifier.sigma.mean(), epoch-1)
+        writer.add_image('Sigma', smoothed_classifier.sigma, epoch-1)
 
 def main():
     # Training settings
@@ -121,7 +144,7 @@ def main():
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
         train(args, model, smoother, device, train_loader, optimizer, epoch)
-        test(args, model, smoother, device, test_loader)
+        test(args, model, smoother, device, test_loader, epoch)
         scheduler.step()
 
 

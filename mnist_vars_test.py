@@ -26,7 +26,7 @@ parser.add_argument("--alpha", type=float, default=0.001, help="failure probabil
 parser.add_argument('--indep-vars', action='store_true', default=True,
                     help='to use indep vars or not')
 
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',  # 64
+parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
                     help='input batch size for testing (default: 1000)')
@@ -106,11 +106,16 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch):
         # print('Sigma:')
         # print(smoothed_classifier.sigma)
         # plt.imshow(smoothed_classifier.sigma[0].cpu().numpy())
-        save_image(smoothed_classifier.sigma[0], 'gen_files/sigma_viz.png')
+        # save_image(data[0], 'gen_files/sigma_viz.png')
         writer.add_scalar('Radius/test', avg_radius, epoch-1)
         writer.add_scalar('Percent/test', avg_percent, epoch-1)
         writer.add_scalar('Sigma_Mean', smoothed_classifier.sigma.mean(), epoch-1)
-        writer.add_image('Sigma', smoothed_classifier.sigma, epoch-1)
+        sigma_img = smoothed_classifier.sigma - smoothed_classifier.sigma.min()
+        sigma_img = sigma_img / sigma_img.max()
+        writer.add_image('Sigma', sigma_img, epoch-1)
+        save_image(sigma_img[0], 'gen_files/sigma_viz.png')
+        # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
+        print(smoothed_classifier.sigma)
 
 def main():
     # Training settings
@@ -147,6 +152,7 @@ def main():
         test(args, model, smoother, device, test_loader, epoch)
         scheduler.step()
 
+    writer.close()
 
 if __name__ == '__main__':
     main()

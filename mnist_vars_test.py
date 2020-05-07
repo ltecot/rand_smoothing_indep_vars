@@ -46,8 +46,8 @@ parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
 
 args = parser.parse_args()
-filename_suffix = 'multiple_sigma' if args.indep_vars else 'single_sigma'
-writer = SummaryWriter(filename_suffix=filename_suffix)
+comment = '_multiple_sigma' if args.indep_vars else '_single_sigma'
+writer = SummaryWriter(comment=comment)
 
 def load_mnist_model():
     model = Net()
@@ -84,14 +84,15 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
                 smoothed_classifier.sigma.std().item()))
     # Write last radius and percent to tensorboard
     writer.add_scalar('Radius/train', avg_radius, epoch-1)
-    writer.add_scalar('Percent/train', avg_percent, epoch-1)
+    writer.add_scalar('pABar/train', avg_percent, epoch-1)
 
+# TODO: Record and report test accuracy of the smoothed model too.
 def test(args, model, smoothed_classifier, device, test_loader, epoch):
     model.eval()
     # test_loss = 0
     avg_radius = 0
     avg_percent = 0
-    correct = 0
+    perc_correct = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
@@ -99,25 +100,30 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch):
             # print(target.shape)
             prediction, percent, radius = smoothed_classifier.certify(data[0], args.N0, args.N, args.alpha, args.batch_smooth)
             # test_loss += radius
-            avg_radius += radius
-            avg_percent += percent
+            if prediction == target[0]:  # Add 0 to all if it predicts wrong.
+                perc_correct += 1
+                avg_radius += radius
+                avg_percent += percent
         # test_loss /= len(test_loader.dataset)
         avg_radius /= len(test_loader.dataset)
         avg_percent /= len(test_loader.dataset)
+        perc_correct /= len(test_loader.dataset)
         print('\nAverage Test upper bound: {:.4f}'.format(avg_radius))
+        print('Percent correct: {:.4f}'.format(perc_correct))
         print('Sigma avg: {:.4f}\n'.format(smoothed_classifier.sigma.mean()))
         # print('Sigma:')
         # print(smoothed_classifier.sigma)
         # plt.imshow(smoothed_classifier.sigma[0].cpu().numpy())
         # save_image(data[0], 'gen_files/sigma_viz.png')
         writer.add_scalar('Radius/test', avg_radius, epoch-1)
-        writer.add_scalar('Percent/test', avg_percent, epoch-1)
+        writer.add_scalar('pABar/test', avg_percent, epoch-1)
         writer.add_scalar('Sigma_Mean', smoothed_classifier.sigma.mean(), epoch-1)
+        writer.add_scalar('Percent_Correct', perc_correct, epoch-1)
         if args.indep_vars:
             sigma_img = smoothed_classifier.sigma - smoothed_classifier.sigma.min()
             sigma_img = sigma_img / sigma_img.max()
             writer.add_image('Sigma', sigma_img, epoch-1)
-            save_image(sigma_img[0], 'gen_files/sigma_viz.png')
+            # save_image(sigma_img[0], 'gen_files/sigma_viz.png')
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
 

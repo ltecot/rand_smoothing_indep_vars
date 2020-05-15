@@ -46,7 +46,7 @@ parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
 
 args = parser.parse_args()
-comment = '_multiple_sigma' if args.indep_vars else '_single_sigma'
+comment = '_mnist_multiple_sigma' if args.indep_vars else '_mnist_single_sigma'
 writer = SummaryWriter(comment=comment)
 
 def load_mnist_model():

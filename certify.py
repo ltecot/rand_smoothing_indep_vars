@@ -27,6 +27,8 @@ parser.add_argument("--sigma", type=float, default=0.1, help="failure probabilit
 parser.add_argument('--indep-vars', action='store_true', default=False,
                     help='to use indep vars or not')
 
+parser.add_argument('--model', type=str)
+parser.add_argument('--dataset', type=str)
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
 # parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
@@ -50,9 +52,34 @@ args = parser.parse_args()
 comment = '_mnist_multiple_sigma' if args.indep_vars else '_mnist_single_sigma'
 writer = SummaryWriter(comment=comment)
 
-def load_mnist_model():
-    model = Net()
-    model.load_state_dict(torch.load('mnist_cnn.pt'))
+def load_dataset(dataset_name, use_cuda):
+    if dataset_name == "mnist":
+        kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+        train_loader = torch.utils.data.DataLoader(
+            datasets.MNIST('../data', train=True, download=True,
+                        transform=transforms.Compose([
+                            transforms.ToTensor(),
+                            transforms.Normalize((0.1307,), (0.3081,))
+                        ])),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
+        test_loader = torch.utils.data.DataLoader(
+            datasets.MNIST('../data', train=False, transform=transforms.Compose([
+                            transforms.ToTensor(),
+                            transforms.Normalize((0.1307,), (0.3081,))
+                        ])),
+            batch_size=1, shuffle=True, **kwargs)  # Smoothing only can handle one at a time anyways right now
+            # batch_size=args.test_batch_size, shuffle=True, **kwargs)
+    else:
+        raise Exception("Must enter a valid model name")
+    return train_loader, test_loader
+
+def load_model(model_name, device):
+    if model_name == "mnist":
+        model = Net().to(device)
+        model.load_state_dict(torch.load('mnist_cnn.pt'))
+    else:
+        raise Exception("Must enter a valid model name")
+    return model
 
 def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch):
     model.train()
@@ -137,24 +164,10 @@ def main():
 
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
-    train_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('../data', train=True, download=True,
-                       transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
-                       ])),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
-    test_loader = torch.utils.data.DataLoader(
-        datasets.MNIST('../data', train=False, transform=transforms.Compose([
-                           transforms.ToTensor(),
-                           transforms.Normalize((0.1307,), (0.3081,))
-                       ])),
-        batch_size=1, shuffle=True, **kwargs)  # Smoothing only can handle one at a time anyways right now
-        # batch_size=args.test_batch_size, shuffle=True, **kwargs)
+    train_loader, test_loader = load_dataset(args.dataset, use_cuda)    
 
-    model = Net().to(device)
-    model.load_state_dict(torch.load('mnist_cnn.pt'))
+    model = load_model(args.model, device)
+
     smoother = Smooth(model, num_classes=10, sigma=args.sigma, indep_vars=args.indep_vars, data_shape=[1, 28, 28])
     optimizer = optim.Adadelta([smoother.sigma], lr=args.lr)
 

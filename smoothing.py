@@ -1,6 +1,8 @@
 # Original file from https://github.com/locuslab/smoothing/blob/master/code/core.py
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.distributions import Normal
 from scipy.stats import norm, binom_test
 import numpy as np
@@ -107,7 +109,7 @@ class Smooth(object):
             return top2[0]
 
     # TODO: Also update docs here, different return behavior for training
-    # TODO: Note that MNIST uses log_softmax so we have to apply exp. Maybe change to more general later.
+    # TODO: We apply softmax here. Make sure model doesn't do beforehand.
     def _sample_noise(self, x: torch.tensor, num: int, batch_size, training=False, truth_label=None) -> np.ndarray:
         """ Sample the base classifier's prediction under noisy corruptions of the input x.
         :param x: the input [channel x width x height]
@@ -131,7 +133,8 @@ class Smooth(object):
             if not training:
                 counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)
             else:
-                counts += torch.sum(torch.exp(output[:, truth_label]))
+                softmax_out = F.softmax(output, dim=1)
+                counts += torch.sum(softmax_out[:, truth_label])
         return counts
 
     def _count_arr(self, arr: np.ndarray, length: int) -> np.ndarray:

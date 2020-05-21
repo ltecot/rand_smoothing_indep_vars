@@ -5,6 +5,8 @@ from __future__ import print_function
 
 from mnist_train import Net
 from smoothing import Smooth
+from datasets import get_dataset, get_input_dim
+from architectures import get_architecture
 
 import argparse
 import torch
@@ -31,8 +33,8 @@ parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
-# parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
-#                     help='input batch size for testing (default: 1000)')
+parser.add_argument('--test-batch-size', type=int, default=64, metavar='N', # 1000
+                    help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=14, metavar='N',
                     help='number of epochs to train (default: 14)')
 parser.add_argument('--lr', type=float, default=2.0, metavar='LR',
@@ -49,7 +51,7 @@ parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
 
 args = parser.parse_args()
-comment = '_mnist_multiple_sigma' if args.indep_vars else '_mnist_single_sigma'
+comment = '_' + args.model + '_multiple_sigma' if args.indep_vars else '_' + args.model + '_single_sigma'
 writer = SummaryWriter(comment=comment)
 
 def load_dataset(dataset_name, use_cuda):
@@ -67,16 +69,25 @@ def load_dataset(dataset_name, use_cuda):
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
                         ])),
-            batch_size=1, shuffle=True, **kwargs)  # Smoothing only can handle one at a time anyways right now
+            batch_size=args.test_batch_size, shuffle=True, **kwargs)  # Smoothing only can handle one at a time anyways right now
             # batch_size=args.test_batch_size, shuffle=True, **kwargs)
+    elif dataset_name == "cifar10":
+        kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+        train_loader = torch.utils.data.DataLoader(get_dataset("cifar10", "train"), batch_size=args.test_batch_size, shuffle=True, **kwargs)
+        test_loader = torch.utils.data.DataLoader(get_dataset("cifar10", "test"), batch_size=args.test_batch_size, shuffle=True, **kwargs)
+    # elif dataset_name == "imagenet": # Needs some extra file stuff before this will work
     else:
-        raise Exception("Must enter a valid model name")
+        raise Exception("Must enter a valid dataset name")
     return train_loader, test_loader
 
 def load_model(model_name, device):
     if model_name == "mnist":
         model = Net().to(device)
         model.load_state_dict(torch.load('mnist_cnn.pt'))
+    elif model_name == "cifar10":
+        checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_64/cifar10/resnet110/noise_0.12/checkpoint.pth.tar")
+        model = get_architecture(checkpoint["arch"], "cifar10")
+        model.load_state_dict(checkpoint['state_dict'])
     else:
         raise Exception("Must enter a valid model name")
     return model
@@ -126,12 +137,13 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch):
             data, target = data.to(device), target.to(device)
             # print(data.shape)
             # print(target.shape)
-            prediction, percent, radius = smoothed_classifier.certify(data[0], args.N0, args.N, args.alpha, args.batch_smooth)
-            # test_loss += radius
-            if prediction == target[0]:  # Add 0 to all if it predicts wrong.
-                perc_correct += 1
-                avg_radius += radius
-                avg_percent += percent
+            for i in range(data.shape[0]):
+                prediction, percent, radius = smoothed_classifier.certify(data[i], args.N0, args.N, args.alpha, args.batch_smooth)
+                # test_loss += radius
+                if prediction == target[i]:  # Add 0 to all if it predicts wrong.
+                    perc_correct += 1
+                    avg_radius += radius
+                    avg_percent += percent
         # test_loss /= len(test_loader.dataset)
         avg_radius /= len(test_loader.dataset)
         avg_percent /= len(test_loader.dataset)
@@ -168,7 +180,7 @@ def main():
 
     model = load_model(args.model, device)
 
-    smoother = Smooth(model, num_classes=10, sigma=args.sigma, indep_vars=args.indep_vars, data_shape=[1, 28, 28])
+    smoother = Smooth(model, num_classes=10, sigma=args.sigma, indep_vars=args.indep_vars, data_shape=get_input_dim(args.dataset))
     optimizer = optim.Adadelta([smoother.sigma], lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)

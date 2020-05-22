@@ -57,11 +57,12 @@ class Smooth(object):
         if pABar < 0.5:
             return Smooth.ABSTAIN, 0.0, 0.0
         else:
-            if self.indep_vars:
-                radius = torch.norm(self.sigma, p=2) * norm.ppf(pABar)
-            else:
-                radius = self.sigma * norm.ppf(pABar)
-            return cAHat, pABar, radius
+            # if self.indep_vars:
+            #     radius = torch.norm(self.sigma, p=2) * norm.ppf(pABar)
+            # else:
+            #     radius = self.sigma * norm.ppf(pABar)
+            # return cAHat, pABar, radius
+            return cAHat, norm.ppf(pABar)
 
     # TODO: Update docs
     # Because the real certify percent estimate is bounded in number of samples with this value used
@@ -79,13 +80,14 @@ class Smooth(object):
                  in the case of abstention, the class will be ABSTAIN and the radius 0.
         """
         self.base_classifier.eval()
-        counts_estimation = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label)
-        if self.indep_vars:
-            radius = torch.norm(self.sigma, p=2).cuda() * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps)).cuda()
-        else:
-            radius = self.sigma * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps))
+        counts_estimation, true_class_softmax_sum, summed_outputs = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label)
+        # if self.indep_vars:
+        #     radius = torch.norm(self.sigma, p=2).cuda() * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps)).cuda()
+        # else:
+        #     radius = self.sigma * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps))
         # return cAHat, radius
-        return counts_estimation / n, radius
+        cAHat = counts_estimation.argmax().item()
+        return cAHat, self.unit_norm.icdf(torch.clamp(true_class_softmax_sum / n, self.eps, 1-self.eps)), summed_outputs / n
 
     def predict(self, x: torch.tensor, n: int, alpha: float, batch_size: int) -> int:
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
@@ -118,10 +120,15 @@ class Smooth(object):
         :return: an ndarray[int] of length num_classes containing the per-class counts
         """
         # with torch.no_grad():
-        if not training:
-            counts = np.zeros(self.num_classes, dtype=int)
-        else:
-            counts = torch.tensor(0.0).cuda()
+        # if not training:
+        #     counts = np.zeros(self.num_classes, dtype=int)
+        # else:
+        #     true_class_softmax_sum = torch.tensor(0.0).cuda()
+        #     counts = torch.zeros(self.num_classes).cuda()
+        counts = np.zeros(self.num_classes, dtype=int)
+        if training:
+            true_class_softmax_sum = torch.tensor(0.0).cuda()
+            summed_outputs = torch.zeros(self.num_classes, dtype=int).cuda()  # For cross-entropy loss
         for _ in range(ceil(num / batch_size)):
             this_batch_size = min(batch_size, num)
             num -= this_batch_size
@@ -130,12 +137,21 @@ class Smooth(object):
             noise = self.sigma * torch.randn_like(batch)
             output = self.base_classifier(batch + noise)
             predictions = output.argmax(1)
-            if not training:
-                counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)
-            else:
+            # if not training:
+            #     counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)
+            # else:
+            #     softmax_out = F.softmax(output, dim=1)
+            #     # counts += torch.sum(softmax_out[:, truth_label])
+            #     counts += torch.sum(softmax_out[:, truth_label])
+            counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)
+            if training:
                 softmax_out = F.softmax(output, dim=1)
-                counts += torch.sum(softmax_out[:, truth_label])
-        return counts
+                true_class_softmax_sum += torch.sum(softmax_out[:, truth_label])
+                summed_outputs += output
+        if training:
+            return counts, true_class_softmax_sum, summed_outputs
+        else:
+            return counts
 
     def _count_arr(self, arr: np.ndarray, length: int) -> np.ndarray:
         counts = np.zeros(length, dtype=int)

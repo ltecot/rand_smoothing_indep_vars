@@ -19,23 +19,30 @@ from torch.optim.lr_scheduler import StepLR
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
+# Slope of hinge loss to enforce min sigma objective.
+MIN_SIGMA_HINGE_SLOPE = 10000000000
+
 parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
 parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
 parser.add_argument("--N0", type=int, default=100) # 100
 parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
 parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
+# This sigma is also used as the minimum sigma in the min sigma objective
 parser.add_argument("--sigma", type=float, default=0.1, help="failure probability")
+parser.add_argument("--lmbd", type=float, default=0.1, help="tradeoff between accuracy and robust objective")
 parser.add_argument('--indep-vars', action='store_true', default=False,
                     help='to use indep vars or not')
+parser.add_argument('--create_tradeoff_plot', action='store_true', default=False,
+                    help='forgo optimization and produce plot where lambda is automatically varied')
 
 parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('--batch-size', type=int, default=8, metavar='N',
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=64, metavar='N', # 1000
+parser.add_argument('--test-batch-size', type=int, default=8, metavar='N', # 1000
                     help='input batch size for testing (default: 1000)')
-parser.add_argument('--epochs', type=int, default=14, metavar='N',
+parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 14)')
 parser.add_argument('--lr', type=float, default=2.0, metavar='LR',
                     help='learning rate (default: 1.0)')
@@ -51,7 +58,8 @@ parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
 
 args = parser.parse_args()
-comment = '_' + args.model + '_multiple_sigma' if args.indep_vars else '_' + args.model + '_single_sigma'
+comment = '_MODEL_' + args.model + '_OBJECTIVE_' + args.objective
+comment = comment + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
 writer = SummaryWriter(comment=comment)
 
 def load_dataset(dataset_name, use_cuda):
@@ -92,24 +100,44 @@ def load_model(model_name, device):
         raise Exception("Must enter a valid model name")
     return model
 
+# Calculate proper objective we are trying to maximize
+def calculate_objective(args, sigma, icdf_pabar):
+    if not args.indep_vars:
+        objective = sigma * icdf_pabar  # Just do certified radius
+    else:
+        if args.objective == "largest_delta_norm":
+            objective = torch.norm(sigma, p=2) * norm.ppf(pABar)
+        elif args.objective == "minimum_sigma_largest_delta_norm":
+            objective = torch.norm(sigma, p=2) * norm.ppf(pABar) + MIN_SIGMA_HINGE_SLOPE * torch.sum(torch.min(sigma - args.sigma,torch.tensor([0.])))
+        elif args.objective == "certified_area":
+            objective = torch.sum(torch.log(sigma)) + torch.numel(sigma) * torch.log(icdf_pabar)  # sum of log of simgas + d * log of inverse CDF of paBar
+        else:
+            raise Exception("Must enter a valid objective")
+    return objective
+
+# def calculate_loss(objective_value, ce_loss, lambda_param):
+#     # lambda_param * F.cross_entropy(model_output, true_class) + objective_value
+#     lambda_param * F.cross_entropy(model_output, true_class) + objective_value
+
 def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
-        avg_radius = 0
-        avg_percent = 0
+        ce_loss = 0
+        objective = 0
+        accuracy = 0
         # avg_icdf = 0
         for i in range(data.shape[0]):
-            percent, radius = smoothed_classifier.certify_training(data[i], args.N0, args.N_train, args.alpha, args.batch_smooth, target[i])
-            avg_radius += radius
-            avg_percent += percent
-            # avg_icdf += icdf
-        avg_percent /= data.shape[0]
-        avg_radius /= data.shape[0]
-        # avg_icdf /= data.shape[0]
-        # TODO: Change to remove instances where the predicted class is wrong. Maybe ok to keep?
-        loss = -avg_radius
+            prediction, icdf_pabar, smoothed_output = smoothed_classifier.certify_training(data[i], args.N0, args.N_train, args.alpha, args.batch_smooth, target[i])
+            ce_loss += F.cross_entropy(smoothed_output, target[i])
+            if prediction == target[i]:  # Add 0 to all if it predicts wrong.
+                accuracy += 1
+                objective += calculate_objective(args, smoothed_classifier.sigma, icdf_pabar)
+        ce_loss /= data.shape[0]
+        objective /= data.shape[0]
+        accuracy /= data.shape[0]
+        loss = args.lmbd * ce_loss - objective
         loss.backward()
         optimizer.step()
         
@@ -121,48 +149,47 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
                 avg_percent.item(), 
                 smoothed_classifier.sigma.mean().item(),
                 smoothed_classifier.sigma.std().item()))
-    # Write last radius and percent to tensorboard
-    writer.add_scalar('Radius/train', avg_radius, epoch-1)
-    writer.add_scalar('pABar/train', avg_percent, epoch-1)
+    # Write last objective, loss, and accuracy to tensorboard
+    writer.add_scalar('ce_loss/train', ce_loss, epoch-1)
+    writer.add_scalar('objective/train', objective, epoch-1)
+    writer.add_scalar('accuracy/train', accuracy, epoch-1)
 
 # TODO: Record and report test accuracy of the smoothed model too.
 def test(args, model, smoothed_classifier, device, test_loader, epoch):
     model.eval()
     # test_loss = 0
-    avg_radius = 0
-    avg_percent = 0
-    perc_correct = 0
+    objective = 0
+    accuracy = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             # print(data.shape)
             # print(target.shape)
             for i in range(data.shape[0]):
-                prediction, percent, radius = smoothed_classifier.certify(data[i], args.N0, args.N, args.alpha, args.batch_smooth)
+                prediction, icdf_pabar = smoothed_classifier.certify(data[i], args.N0, args.N, args.alpha, args.batch_smooth)
                 # test_loss += radius
                 if prediction == target[i]:  # Add 0 to all if it predicts wrong.
-                    perc_correct += 1
-                    avg_radius += radius
-                    avg_percent += percent
+                    accuracy += 1
+                    objective += calculate_objective(args, smoothed_classifier.sigma, icdf_pabar)
         # test_loss /= len(test_loader.dataset)
-        avg_radius /= len(test_loader.dataset)
-        avg_percent /= len(test_loader.dataset)
-        perc_correct /= len(test_loader.dataset)
-        print('\nAverage Test upper bound: {:.4f}'.format(avg_radius))
-        print('Percent correct: {:.4f}'.format(perc_correct))
+        objective /= len(test_loader.dataset)
+        accuracy /= len(test_loader.dataset)
+        print('\nAverage Test objective: {:.4f}'.format(objective))
+        print('Percent correct: {:.4f}'.format(accuracy))
         print('Sigma avg: {:.4f}\n'.format(smoothed_classifier.sigma.mean()))
         # print('Sigma:')
         # print(smoothed_classifier.sigma)
         # plt.imshow(smoothed_classifier.sigma[0].cpu().numpy())
         # save_image(data[0], 'gen_files/sigma_viz.png')
-        writer.add_scalar('Radius/test', avg_radius, epoch-1)
-        writer.add_scalar('pABar/test', avg_percent, epoch-1)
-        writer.add_scalar('Sigma_Mean', smoothed_classifier.sigma.mean(), epoch-1)
-        writer.add_scalar('Percent_Correct', perc_correct, epoch-1)
+        writer.add_scalar('objective/test', objective, epoch-1)
+        writer.add_scalar('accuracy/test', accuracy, epoch-1)
+        writer.add_scalar('sigma/mean', smoothed_classifier.sigma.mean(), epoch-1)
+        writer.add_scalar('sigma/stddev', smoothed_classifier.sigma.std(), epoch-1)
+        # writer.add_scalar('Percent_Correct', perc_correct, epoch-1)
         if args.indep_vars:
             sigma_img = smoothed_classifier.sigma - smoothed_classifier.sigma.min()
             sigma_img = sigma_img / sigma_img.max()
-            writer.add_image('Sigma', sigma_img, epoch-1)
+            writer.add_image('sigma', sigma_img, epoch-1)
             # save_image(sigma_img[0], 'gen_files/sigma_viz.png')
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)

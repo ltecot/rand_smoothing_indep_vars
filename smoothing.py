@@ -55,7 +55,7 @@ class Smooth(object):
         nA = counts_estimation[cAHat].item()
         pABar = self._lower_confidence_bound(nA, n, alpha)
         if pABar < 0.5:
-            return Smooth.ABSTAIN, 0.0, 0.0
+            return Smooth.ABSTAIN, 0.0
         else:
             # if self.indep_vars:
             #     radius = torch.norm(self.sigma, p=2) * norm.ppf(pABar)
@@ -128,7 +128,7 @@ class Smooth(object):
         counts = np.zeros(self.num_classes, dtype=int)
         if training:
             true_class_softmax_sum = torch.tensor(0.0).cuda()
-            summed_outputs = torch.zeros(self.num_classes, dtype=int).cuda()  # For cross-entropy loss
+            summed_outputs = torch.zeros(self.num_classes).cuda()  # For cross-entropy loss
         for _ in range(ceil(num / batch_size)):
             this_batch_size = min(batch_size, num)
             num -= this_batch_size
@@ -147,7 +147,7 @@ class Smooth(object):
             if training:
                 softmax_out = F.softmax(output, dim=1)
                 true_class_softmax_sum += torch.sum(softmax_out[:, truth_label])
-                summed_outputs += output
+                summed_outputs += torch.sum(output, dim=0)
         if training:
             return counts, true_class_softmax_sum, summed_outputs
         else:

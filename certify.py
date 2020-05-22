@@ -29,18 +29,20 @@ parser.add_argument("--N", type=int, default=1000, help="number of samples to us
 parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
 # This sigma is also used as the minimum sigma in the min sigma objective
-parser.add_argument("--sigma", type=float, default=0.1, help="failure probability")
-parser.add_argument("--lmbd", type=float, default=0.1, help="tradeoff between accuracy and robust objective")
+parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
+parser.add_argument("--lmbd", type=float, default=1, help="tradeoff between accuracy and robust objective")
+parser.add_argument("--lmbd-div", type=float, default=1, help="divider of lambda used when creating tradeoff plots")
 parser.add_argument('--indep-vars', action='store_true', default=False,
                     help='to use indep vars or not')
-parser.add_argument('--create_tradeoff_plot', action='store_true', default=False,
+parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
                     help='forgo optimization and produce plot where lambda is automatically varied')
 
 parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)
-parser.add_argument('--batch-size', type=int, default=8, metavar='N',
+parser.add_argument('--objective', type=str, default="")
+parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=8, metavar='N', # 1000
+parser.add_argument('--test-batch-size', type=int, default=64, metavar='N', # 1000
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=10, metavar='N',
                     help='number of epochs to train (default: 14)')
@@ -60,6 +62,8 @@ parser.add_argument('--save-model', action='store_true', default=True,
 args = parser.parse_args()
 comment = '_MODEL_' + args.model + '_OBJECTIVE_' + args.objective
 comment = comment + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
+if args.create_tradeoff_plot:
+    comment = comment + '_TRADEOFF_PLOT'
 writer = SummaryWriter(comment=comment)
 
 def load_dataset(dataset_name, use_cuda):
@@ -106,9 +110,9 @@ def calculate_objective(args, sigma, icdf_pabar):
         objective = sigma * icdf_pabar  # Just do certified radius
     else:
         if args.objective == "largest_delta_norm":
-            objective = torch.norm(sigma, p=2) * norm.ppf(pABar)
+            objective = torch.norm(sigma, p=2) * icdf_pabar
         elif args.objective == "minimum_sigma_largest_delta_norm":
-            objective = torch.norm(sigma, p=2) * norm.ppf(pABar) + MIN_SIGMA_HINGE_SLOPE * torch.sum(torch.min(sigma - args.sigma,torch.tensor([0.])))
+            objective = torch.norm(sigma, p=2) * icdf_pabar + MIN_SIGMA_HINGE_SLOPE * torch.sum(torch.min(sigma - args.sigma, torch.tensor([0.]).cuda()))
         elif args.objective == "certified_area":
             objective = torch.sum(torch.log(sigma)) + torch.numel(sigma) * torch.log(icdf_pabar)  # sum of log of simgas + d * log of inverse CDF of paBar
         else:
@@ -130,7 +134,9 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         # avg_icdf = 0
         for i in range(data.shape[0]):
             prediction, icdf_pabar, smoothed_output = smoothed_classifier.certify_training(data[i], args.N0, args.N_train, args.alpha, args.batch_smooth, target[i])
-            ce_loss += F.cross_entropy(smoothed_output, target[i])
+            # print(smoothed_output.unsqueeze(0).shape)
+            # print(target[i:i+1].shape)
+            ce_loss += F.cross_entropy(smoothed_output.unsqueeze(0), target[i:i+1])
             if prediction == target[i]:  # Add 0 to all if it predicts wrong.
                 accuracy += 1
                 objective += calculate_objective(args, smoothed_classifier.sigma, icdf_pabar)
@@ -142,11 +148,11 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         optimizer.step()
         
         if batch_idx % args.log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tCE_Loss: {:.6f}\tObjective: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()))
-            print('Percent: {:.5f} \t sigma mean: {:.5f} \t sigma stddev: {:.5f}'.format(
-                avg_percent.item(), 
+                100. * batch_idx / len(train_loader), ce_loss.item(), objective.item()))
+            print('Accuracy: {:.5f} \t sigma mean: {:.5f} \t sigma stddev: {:.5f}'.format(
+                accuracy, 
                 smoothed_classifier.sigma.mean().item(),
                 smoothed_classifier.sigma.std().item()))
     # Write last objective, loss, and accuracy to tensorboard
@@ -193,6 +199,11 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch):
             # save_image(sigma_img[0], 'gen_files/sigma_viz.png')
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
+        if args.create_tradeoff_plot:
+            writer.add_scalar('tradeoff_plot/lambda', args.lmbd, epoch-1)
+            writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
+            writer.add_scalar('tradeoff_plot/acc_sigma_mean', accuracy, smoothed_classifier.sigma.mean())
+            args.lmbd /= args.lmbd_div
 
 def main():
     # Training settings

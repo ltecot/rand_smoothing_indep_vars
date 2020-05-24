@@ -29,9 +29,9 @@ parser.add_argument("--N", type=int, default=1000, help="number of samples to us
 parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
 # This sigma is also used as the minimum sigma in the min sigma objective
-parser.add_argument("--sigma", type=float, default=0.8, help="failure probability")
-parser.add_argument("--lmbd", type=float, default=10000, help="tradeoff between accuracy and robust objective")
-parser.add_argument("--lmbd-div", type=float, default=1, help="divider of lambda used when creating tradeoff plots")
+parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
+parser.add_argument("--lmbd", type=float, default=1000000000, help="tradeoff between accuracy and robust objective")
+parser.add_argument("--lmbd-div", type=float, default=1000, help="divider of lambda used when creating tradeoff plots")
 parser.add_argument('--indep-vars', action='store_true', default=False,
                     help='to use indep vars or not')
 parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
@@ -40,9 +40,9 @@ parser.add_argument('--create-tradeoff-plot', action='store_true', default=False
 parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)
 parser.add_argument('--objective', type=str, default="")
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=64, metavar='N', # 1000
+parser.add_argument('--test-batch-size', type=int, default=32, metavar='N', # 1000
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=15, metavar='N',
                     help='number of epochs to train (default: 14)')
@@ -60,16 +60,16 @@ parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
 
 args = parser.parse_args()
-comment = '_MODEL_' + args.model + '_OBJECTIVE_' + args.objective
-comment = comment + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
+comment = '_MODEL_' + args.model
+comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
 if args.create_tradeoff_plot:
     comment = comment + '_TRADEOFF_PLOT'
 writer = SummaryWriter(comment=comment)
-GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
+# GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
 
 def load_dataset(dataset_name, use_cuda):
     if dataset_name == "mnist":
-        kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+        kwargs = {'pin_memory': True} if use_cuda else {}  # 'num_workers': 1, 
         train_loader = torch.utils.data.DataLoader(
             datasets.MNIST('../data', train=True, download=True,
                         transform=transforms.Compose([
@@ -101,6 +101,10 @@ def load_model(model_name, device):
         checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_64/cifar10/resnet110/noise_0.12/checkpoint.pth.tar")
         model = get_architecture(checkpoint["arch"], "cifar10")
         model.load_state_dict(checkpoint['state_dict'])
+    elif model_name == "cifar10_adv_train":
+        checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_64/cifar10/resnet110/noise_1.00/checkpoint.pth.tar")
+        model = get_architecture(checkpoint["arch"], "cifar10")
+        model.load_state_dict(checkpoint['state_dict'])
     else:
         raise Exception("Must enter a valid model name")
     return model
@@ -127,7 +131,7 @@ def calculate_objective(args, sigma, icdf_pabar):
 #     # lambda_param * F.cross_entropy(model_output, true_class) + objective_value
 #     lambda_param * F.cross_entropy(model_output, true_class) + objective_value
 
-def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch):
+def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch, lmbd):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -147,7 +151,7 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         ce_loss /= data.shape[0]
         objective /= data.shape[0]
         accuracy /= data.shape[0]
-        loss = GLOBAL_LMBD * ce_loss - objective
+        loss = lmbd * ce_loss - objective
         loss.backward()
         optimizer.step()
         
@@ -165,7 +169,7 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
     writer.add_scalar('accuracy/train', accuracy, epoch-1)
 
 # TODO: Record and report test accuracy of the smoothed model too.
-def test(args, model, smoothed_classifier, device, test_loader, epoch):
+def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd):
     model.eval()
     # test_loss = 0
     objective = 0
@@ -204,10 +208,11 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch):
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
         if args.create_tradeoff_plot:
-            writer.add_scalar('tradeoff_plot/lambda', GLOBAL_LMBD, epoch-1)
+            writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
             writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
             writer.add_scalar('tradeoff_plot/acc_sigma_mean', accuracy, smoothed_classifier.sigma.mean())
-            GLOBAL_LMBD /= args.lmbd_div
+            lmbd /= args.lmbd_div
+    return lmbd
 
 def main():
     # Training settings
@@ -225,10 +230,11 @@ def main():
     smoother = Smooth(model, num_classes=10, sigma=args.sigma, indep_vars=args.indep_vars, data_shape=get_input_dim(args.dataset))
     optimizer = optim.Adadelta([smoother.sigma], lr=args.lr)
 
+    lmbd = args.lmbd
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
-        train(args, model, smoother, device, train_loader, optimizer, epoch)
-        test(args, model, smoother, device, test_loader, epoch)
+        train(args, model, smoother, device, train_loader, optimizer, epoch, lmbd)
+        lmbd = test(args, model, smoother, device, test_loader, epoch, lmbd)
         scheduler.step()
 
     writer.close()

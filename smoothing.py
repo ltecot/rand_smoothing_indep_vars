@@ -86,6 +86,7 @@ class Smooth(object):
         # else:
         #     radius = self.sigma * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps))
         # return cAHat, radius
+        # print(true_class_softmax_sum)
         cAHat = counts_estimation.argmax().item()
         return cAHat, self.unit_norm.icdf(torch.clamp(true_class_softmax_sum / n, self.eps, 1-self.eps)), summed_outputs / n
 

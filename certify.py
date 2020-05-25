@@ -30,8 +30,8 @@ parser.add_argument("--N-train", type=int, default=100, help="number of samples 
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
 # This sigma is also used as the minimum sigma in the min sigma objective
 parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
-parser.add_argument("--lmbd", type=float, default=1000000000, help="tradeoff between accuracy and robust objective")
-parser.add_argument("--lmbd-div", type=float, default=1000, help="divider of lambda used when creating tradeoff plots")
+parser.add_argument("--lmbd", type=float, default=100000000000, help="tradeoff between accuracy and robust objective")
+parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
 parser.add_argument('--indep-vars', action='store_true', default=False,
                     help='to use indep vars or not')
 parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
@@ -44,7 +44,7 @@ parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=32, metavar='N', # 1000
                     help='input batch size for testing (default: 1000)')
-parser.add_argument('--epochs', type=int, default=15, metavar='N',
+parser.add_argument('--epochs', type=int, default=20, metavar='N',
                     help='number of epochs to train (default: 14)')
 parser.add_argument('--lr', type=float, default=2.0, metavar='LR',
                     help='learning rate (default: 1.0)')
@@ -58,6 +58,9 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--save-model', action='store_true', default=True,
                     help='For Saving the current Model')
+parser.add_argument('--gpu', type=int, default=0,
+                    help='The gpu number you are running on.')
+
 
 args = parser.parse_args()
 comment = '_MODEL_' + args.model
@@ -101,8 +104,8 @@ def load_model(model_name, device):
         checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_64/cifar10/resnet110/noise_0.12/checkpoint.pth.tar")
         model = get_architecture(checkpoint["arch"], "cifar10")
         model.load_state_dict(checkpoint['state_dict'])
-    elif model_name == "cifar10_adv_train":
-        checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_64/cifar10/resnet110/noise_1.00/checkpoint.pth.tar")
+    elif model_name == "cifar10_robust":
+        checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_512/cifar10/resnet110/noise_0.12/checkpoint.pth.tar")
         model = get_architecture(checkpoint["arch"], "cifar10")
         model.load_state_dict(checkpoint['state_dict'])
     else:
@@ -207,7 +210,7 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd):
             # save_image(sigma_img[0], 'gen_files/sigma_viz.png')
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
-        if args.create_tradeoff_plot:
+        if args.create_tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
             writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
             writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
             writer.add_scalar('tradeoff_plot/acc_sigma_mean', accuracy, smoothed_classifier.sigma.mean())
@@ -221,7 +224,7 @@ def main():
 
     torch.manual_seed(args.seed)
 
-    device = torch.device("cuda" if use_cuda else "cpu")
+    device = torch.device("cuda:" + str(args.gpu) if use_cuda else "cpu")
 
     train_loader, test_loader = load_dataset(args.dataset, use_cuda)    
 

@@ -47,7 +47,7 @@ def get_num_classes(dataset: str):
         return 10
 
 def get_input_dim(dataset: str):
-    """Return the number of classes in the dataset. """
+    """Return the input dimension of the dataset. """
     if dataset == "mnist":
         return [1, 28, 28]
     elif dataset == "cifar10":

@@ -25,9 +25,9 @@ MIN_SIGMA_HINGE_SLOPE = 10000000000
 parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
 
 parser.add_argument('--model', type=str)
-parser.add_argument('--dataset', type=str)
+parser.add_argument('--dataset', type=str)  # TODO: Refactor out. Always determined by model anyways.
 parser.add_argument('--objective', type=str, default="")
-parser.add_argument('--indep-vars', action='store_true', default=False,
+parser.add_argument('--indep-vars', action='store_true', default=True,  # TODO: Pretty much always true at this point. Refactor out later.
                     help='to use indep vars or not')
 parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
                     help='forgo optimization and produce plot where lambda is automatically varied')
@@ -36,20 +36,20 @@ parser.add_argument('--save-sigma', action='store_true', default=False,
 parser.add_argument("--lmbd", type=float, default=10000000000, help="tradeoff between accuracy and robust objective")
 parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
 
-parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
-parser.add_argument("--N0", type=int, default=100) # 100
-parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
-parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
+parser.add_argument("--batch-smooth", type=int, default=64, help="batch size")
+parser.add_argument("--N0", type=int, default=64) # 100
+parser.add_argument("--N", type=int, default=512, help="number of samples to use") # 100000
+parser.add_argument("--N-train", type=int, default=64, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
 # This sigma is also used as the minimum sigma in the min sigma objective
 parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
-parser.add_argument('--batch-size', type=int, default=8, metavar='N',
+parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=8, metavar='N', # 1000
+parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=20, metavar='N',
                     help='number of epochs to train (default: 14)')
-parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
+parser.add_argument('--lr', type=float, default=0.05, metavar='LR',
                     help='learning rate (default: 1.0)')
 # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
 #                     help='Learning rate step gamma (default: 0.7)')
@@ -148,6 +148,9 @@ def calculate_objective(indep_vars, objective, sigma, icdf_pabar):
 
 def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch, lmbd, writer):
     model.train()
+    avg_ce_loss = torch.tensor([0.0]).cuda()
+    avg_objective = torch.tensor([0.0]).cuda()
+    avg_accuracy = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
@@ -166,6 +169,9 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
             if prediction == target[i]:  # Add 0 to all if it predicts wrong.
                 accuracy += 1
                 objective += calculate_objective(args.indep_vars, args.objective, smoothed_classifier.sigma, icdf_pabar)
+        avg_ce_loss += ce_loss
+        avg_objective += objective
+        avg_accuracy += accuracy
         ce_loss /= data.shape[0]
         # objective /= data.shape[0]
         objective /= accuracy  # Want to average objectives that are actually certified
@@ -186,10 +192,13 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
                 accuracy, 
                 torch.abs(smoothed_classifier.sigma).mean().item(),
                 torch.abs(smoothed_classifier.sigma).std().item()))
-    # Write last objective, loss, and accuracy to tensorboard
-    writer.add_scalar('ce_loss/train', ce_loss, epoch-1)
-    writer.add_scalar('objective/train', objective, epoch-1)
-    writer.add_scalar('accuracy/train', accuracy, epoch-1)
+    # Write avg objective, loss, and accuracy to tensorboard
+    avg_ce_loss /= len(train_loader.dataset)
+    avg_objective /= avg_accuracy  # Divide by number of correctly classified points
+    avg_accuracy /= len(train_loader.dataset)
+    writer.add_scalar('ce_loss/train', avg_ce_loss, epoch-1)
+    writer.add_scalar('objective/train', avg_objective, epoch-1)
+    writer.add_scalar('accuracy/train', avg_accuracy, epoch-1)
 
 # TODO: Record and report test accuracy of the smoothed model too.
 def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, writer):
@@ -236,7 +245,7 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
             torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_LAMBDA_' + str(lmbd))
         if args.create_tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
             writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
-            writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
+            # writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
             # writer.add_scalar('tradeoff_plot/acc_sigma_mean', accuracy, smoothed_classifier.sigma.mean())
             lmbd /= args.lmbd_div
     return lmbd

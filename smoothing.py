@@ -173,3 +173,13 @@ class Smooth(object):
         :return: a lower bound on the binomial proportion which holds true w.p at least (1 - alpha) over the samples
         """
         return proportion_confint(NA, N, alpha=2 * alpha, method="beta")[0]
+
+    def _upper_confidence_bound(self, NA: int, N: int, alpha: float) -> float:
+        """ Returns a (1 - alpha) lower confidence bound on a bernoulli proportion.
+        This function uses the Clopper-Pearson method.
+        :param NA: the number of "successes"
+        :param N: the number of total draws
+        :param alpha: the confidence level
+        :return: a lower bound on the binomial proportion which holds true w.p at least (1 - alpha) over the samples
+        """
+        return proportion_confint(NA, N, alpha=2 * alpha, method="beta")[1]

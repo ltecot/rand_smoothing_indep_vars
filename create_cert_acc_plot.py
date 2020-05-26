@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 # from torch.utils.tensorboard import SummaryWriter
 
+# from math import exp
 
 parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
 
@@ -92,17 +93,19 @@ def calculate_test_set_objective(args, model, smoothed_classifier, device, test_
 def get_sigma_vects(model, dataset):
     # Load sigmas
     if model == "mnist":
-        # return {"$\lambda$ = 0.0000000001": 0.0000000001 * torch.ones(get_input_dim(dataset))}
-        return {"$\lambda$ = 0.01": 0.01 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 0.10": 0.10 * torch.ones(get_input_dim(dataset))}
+        return {}
+        # return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.00": 1.0 * torch.ones(get_input_dim(dataset))}
     elif model == "cifar10":
-        return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.0": 1.0 * torch.ones(get_input_dim(dataset))}
+        return {}
+        # return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.00": 1.0 * torch.ones(get_input_dim(dataset))}
     elif model == "cifar10_robust":
-        return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.0": 1.0 * torch.ones(get_input_dim(dataset))}
+        return {}
+        # return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.00": 1.0 * torch.ones(get_input_dim(dataset))}
 
 # Load sigma values for original method testing.
 def get_sigma_vals(model):
     if model == "mnist":
-        return {"$\sigma$ = 0.25": 0.25, "$\sigma$ = 0.50": 0.50}
+        return {"$\sigma$ = 0.80": 0.8, "$\sigma$ = 1.40": 1.40}
     elif model == "cifar10":
         return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 1.00": 1.00}
     elif model == "cifar10_robust":
@@ -118,6 +121,7 @@ def plot_sigma_line(args, model, sig_name, sigma, device, test_loader):
     while objectives[0] == float("-inf"):
         objectives = objectives[1:]
         accuracy = accuracy[1:]
+    # objectives = [exp(obj) for obj in objectives]
     plt.plot(objectives, accuracy, label=sig_name)
 
 def main():
@@ -156,7 +160,8 @@ def main():
         plt.title("Cifar10 Robust Model")
     # Plot X axis
     if args.objective == "certified_area":
-        plt.xlabel("Certified Area (Log)")
+        plt.xlabel("Certified Area")
+        # plt.xlabel("Certified Area (Log)")
     elif args.objective == "largest_delta_norm":
         plt.xlabel("Maximum Pertubation")
     

@@ -31,7 +31,7 @@ parser.add_argument('--indep-vars', action='store_true', default=False,
                     help='to use indep vars or not')
 parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
                     help='forgo optimization and produce plot where lambda is automatically varied')
-parser.add_argument("--lmbd", type=float, default=100000000000, help="tradeoff between accuracy and robust objective")
+parser.add_argument("--lmbd", type=float, default=100000000, help="tradeoff between accuracy and robust objective")
 parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
 
 parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
@@ -62,8 +62,12 @@ parser.add_argument('--save-sigma', action='store_true', default=False,
 # parser.add_argument('--gpu', type=int, default=0,
 #                     help='The gpu number you are running on.')
 
-
 args = parser.parse_args()
+
+comment = '_MODEL_' + args.model
+comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
+if args.create_tradeoff_plot:
+    comment = comment + '_TRADEOFF_PLOT'
 
 # GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
 
@@ -234,10 +238,6 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
     return lmbd
 
 def main():
-    comment = '_MODEL_' + args.model
-    comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
-    if args.create_tradeoff_plot:
-        comment = comment + '_TRADEOFF_PLOT'
     writer = SummaryWriter(comment=comment)
 
     torch.manual_seed(args.seed)

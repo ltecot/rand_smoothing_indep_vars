@@ -33,7 +33,7 @@ parser.add_argument('--create-tradeoff-plot', action='store_true', default=False
                     help='forgo optimization and produce plot where lambda is automatically varied')
 parser.add_argument('--save-sigma', action='store_true', default=False,
                     help='Save the sigma vector')
-parser.add_argument("--lmbd", type=float, default=1000000, help="tradeoff between accuracy and robust objective")
+parser.add_argument("--lmbd", type=float, default=10000000000, help="tradeoff between accuracy and robust objective")
 parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
 
 parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
@@ -49,7 +49,7 @@ parser.add_argument('--test-batch-size', type=int, default=8, metavar='N', # 100
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=20, metavar='N',
                     help='number of epochs to train (default: 14)')
-parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
+parser.add_argument('--lr', type=float, default=0.1, metavar='LR',
                     help='learning rate (default: 1.0)')
 # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
 #                     help='Learning rate step gamma (default: 0.7)')
@@ -68,6 +68,7 @@ comment = '_MODEL_' + args.model
 comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
 if args.create_tradeoff_plot:
     comment = comment + '_TRADEOFF_PLOT'
+# comment = "Testing"
 
 # GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
 
@@ -132,6 +133,9 @@ def calculate_objective(indep_vars, objective, sigma, icdf_pabar):
                 icdf_pabar = torch.tensor(icdf_pabar)
             elif not torch.is_tensor(icdf_pabar):
                 icdf_pabar = torch.tensor(icdf_pabar.item())
+            # print(torch.sum(sigma+eps <= 0))
+            # print(torch.numel(sigma))
+            # print(icdf_pabar)
             objective = torch.sum(torch.log(sigma+eps)) + torch.numel(sigma) * torch.log(icdf_pabar+eps)  # sum of log of simgas + d * log of inverse CDF of paBar
         else:
             raise Exception("Must enter a valid objective")

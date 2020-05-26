@@ -88,7 +88,11 @@ class Smooth(object):
         # return cAHat, radius
         # print(true_class_softmax_sum)
         cAHat = counts_estimation.argmax().item()
-        return cAHat, self.unit_norm.icdf(torch.clamp(true_class_softmax_sum / n, self.eps, 1-self.eps)), summed_outputs / n
+        pA = true_class_softmax_sum / n
+        if pA < 0.5:
+            return Smooth.ABSTAIN, 0.0, summed_outputs / n
+        else:
+            return cAHat, self.unit_norm.icdf(torch.clamp(pA, self.eps, 1-self.eps)), summed_outputs / n
 
     def predict(self, x: torch.tensor, n: int, alpha: float, batch_size: int) -> int:
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the

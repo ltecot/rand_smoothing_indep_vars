@@ -5,7 +5,7 @@ from __future__ import print_function
 
 from mnist_train import Net
 from smoothing import Smooth
-from datasets import get_dataset, get_input_dim
+from datasets import get_dataset, get_input_dim, get_num_classes
 from architectures import get_architecture
 
 import argparse
@@ -57,8 +57,8 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='how many batches to wait before logging training status')
-# parser.add_argument('--save-model', action='store_true', default=True,
-#                     help='For Saving the current Model')
+parser.add_argument('--save-sigma', action='store_true', default=False,
+                    help='Save the sigma vector')
 # parser.add_argument('--gpu', type=int, default=0,
 #                     help='The gpu number you are running on.')
 
@@ -71,8 +71,8 @@ if args.create_tradeoff_plot:
 writer = SummaryWriter(comment=comment)
 # GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
 
-def load_dataset(dataset_name, use_cuda):
-    if dataset_name == "mnist":
+def load_dataset(args, use_cuda):
+    if args.dataset == "mnist":
         kwargs = {'pin_memory': True} if use_cuda else {}  # 'num_workers': 1, 
         train_loader = torch.utils.data.DataLoader(
             datasets.MNIST('../data', train=True, download=True,
@@ -88,11 +88,11 @@ def load_dataset(dataset_name, use_cuda):
                         ])),
             batch_size=args.test_batch_size, shuffle=True, **kwargs)  # Smoothing only can handle one at a time anyways right now
             # batch_size=args.test_batch_size, shuffle=True, **kwargs)
-    elif dataset_name == "cifar10":
+    elif args.dataset == "cifar10":
         kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
-        train_loader = torch.utils.data.DataLoader(get_dataset("cifar10", "train"), batch_size=args.test_batch_size, shuffle=True, **kwargs)
+        train_loader = torch.utils.data.DataLoader(get_dataset("cifar10", "train"), batch_size=args.batch_size, shuffle=True, **kwargs)
         test_loader = torch.utils.data.DataLoader(get_dataset("cifar10", "test"), batch_size=args.test_batch_size, shuffle=True, **kwargs)
-    # elif dataset_name == "imagenet": # Needs some extra file stuff before this will work
+    # elif args.dataset == "imagenet": # Needs some extra file stuff before this will work
     else:
         raise Exception("Must enter a valid dataset name")
     return train_loader, test_loader
@@ -114,18 +114,18 @@ def load_model(model_name, device):
     return model
 
 # Calculate proper objective we are trying to maximize
-def calculate_objective(args, sigma, icdf_pabar):
+def calculate_objective(indep_vars, objective, sigma, icdf_pabar):
     # if torch.sum(sigma <= 0):
     #     print(sigma)
     #     print(icdf_pabar)
-    if not args.indep_vars:
+    if not indep_vars:
         objective = sigma * icdf_pabar  # Just do certified radius
     else:
-        if args.objective == "largest_delta_norm":
+        if objective == "largest_delta_norm":
             objective = torch.norm(sigma, p=2) * icdf_pabar
-        elif args.objective == "minimum_sigma_largest_delta_norm":
+        elif objective == "minimum_sigma_largest_delta_norm":
             objective = torch.norm(sigma, p=2) * icdf_pabar + MIN_SIGMA_HINGE_SLOPE * torch.sum(torch.min(sigma - args.sigma, torch.tensor([0.]).cuda()))
-        elif args.objective == "certified_area":
+        elif objective == "certified_area":
             sigma = torch.abs(sigma)  # For log calculation. Negative or positive makes no difference in our formulation.
             eps = 0.000000001 # To prevent log from returning infinity.
             if not torch.is_tensor(icdf_pabar):
@@ -159,7 +159,7 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
             ce_loss += F.cross_entropy(smoothed_output.unsqueeze(0), target[i:i+1])
             if prediction == target[i]:  # Add 0 to all if it predicts wrong.
                 accuracy += 1
-                objective += calculate_objective(args, smoothed_classifier.sigma, icdf_pabar)
+                objective += calculate_objective(args.indep_vars, args.objective, smoothed_classifier.sigma, icdf_pabar)
         ce_loss /= data.shape[0]
         objective /= data.shape[0]
         accuracy /= data.shape[0]
@@ -200,7 +200,7 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd):
                 # test_loss += radius
                 if prediction == target[i]:  # Add 0 to all if it predicts wrong.
                     accuracy += 1
-                    objective += calculate_objective(args, smoothed_classifier.sigma, icdf_pabar)
+                    objective += calculate_objective(args.indep_vars, args.objective, smoothed_classifier.sigma, icdf_pabar)
         # test_loss /= len(test_loader.dataset)
         objective /= len(test_loader.dataset)
         accuracy /= len(test_loader.dataset)
@@ -224,6 +224,8 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd):
             # save_image(sigma_img[0], 'gen_files/sigma_viz.png')
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
+        if args.save_sigma:
+            torch.save(smoothed_classifier.sigma, 'models/sigma' + comment + '_LAMBDA_' + str(lmbd))
         if args.create_tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
             writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
             writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
@@ -232,23 +234,17 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd):
     return lmbd
 
 def main():
-    # Training settings
-    
-    use_cuda = not args.no_cuda and torch.cuda.is_available()
-
     torch.manual_seed(args.seed)
-
+    use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    train_loader, test_loader = load_dataset(args.dataset, use_cuda)    
-
+    train_loader, test_loader = load_dataset(args, use_cuda)    
     model = load_model(args.model, device)
-
-    smoother = Smooth(model, num_classes=10, sigma=args.sigma, indep_vars=args.indep_vars, data_shape=get_input_dim(args.dataset))
+    smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=args.sigma, indep_vars=args.indep_vars, data_shape=get_input_dim(args.dataset))
     optimizer = optim.Adadelta([smoother.sigma], lr=args.lr)
+    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
 
     lmbd = args.lmbd
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
         train(args, model, smoother, device, train_loader, optimizer, epoch, lmbd)
         lmbd = test(args, model, smoother, device, test_loader, epoch, lmbd)

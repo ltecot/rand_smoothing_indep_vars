@@ -43,7 +43,7 @@ def get_num_classes(dataset: str):
     """Return the number of classes in the dataset. """
     if dataset == "imagenet":
         return 1000
-    elif dataset == "cifar10":
+    elif dataset == "cifar10" or dataset =="mnist":
         return 10
 
 def get_input_dim(dataset: str):

@@ -64,11 +64,7 @@ parser.add_argument('--save-sigma', action='store_true', default=False,
 
 
 args = parser.parse_args()
-comment = '_MODEL_' + args.model
-comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
-if args.create_tradeoff_plot:
-    comment = comment + '_TRADEOFF_PLOT'
-writer = SummaryWriter(comment=comment)
+
 # GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
 
 def load_dataset(args, use_cuda):
@@ -128,7 +124,9 @@ def calculate_objective(indep_vars, objective, sigma, icdf_pabar):
         elif objective == "certified_area":
             sigma = torch.abs(sigma)  # For log calculation. Negative or positive makes no difference in our formulation.
             eps = 0.000000001 # To prevent log from returning infinity.
-            if not torch.is_tensor(icdf_pabar):
+            if isinstance(icdf_pabar, float):
+                icdf_pabar = torch.tensor(icdf_pabar)
+            elif not torch.is_tensor(icdf_pabar):
                 icdf_pabar = torch.tensor(icdf_pabar.item())
             objective = torch.sum(torch.log(sigma+eps)) + torch.numel(sigma) * torch.log(icdf_pabar+eps)  # sum of log of simgas + d * log of inverse CDF of paBar
         else:
@@ -140,7 +138,7 @@ def calculate_objective(indep_vars, objective, sigma, icdf_pabar):
 #     # lambda_param * F.cross_entropy(model_output, true_class) + objective_value
 #     lambda_param * F.cross_entropy(model_output, true_class) + objective_value
 
-def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch, lmbd):
+def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch, lmbd, writer):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -161,7 +159,8 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
                 accuracy += 1
                 objective += calculate_objective(args.indep_vars, args.objective, smoothed_classifier.sigma, icdf_pabar)
         ce_loss /= data.shape[0]
-        objective /= data.shape[0]
+        # objective /= data.shape[0]
+        objective /= accuracy  # Want to average objectives that are actually certified
         accuracy /= data.shape[0]
         loss = lmbd * ce_loss - objective
         loss.backward()
@@ -185,7 +184,7 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
     writer.add_scalar('accuracy/train', accuracy, epoch-1)
 
 # TODO: Record and report test accuracy of the smoothed model too.
-def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd):
+def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, writer):
     model.eval()
     # test_loss = 0
     objective = 0
@@ -202,7 +201,8 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd):
                     accuracy += 1
                     objective += calculate_objective(args.indep_vars, args.objective, smoothed_classifier.sigma, icdf_pabar)
         # test_loss /= len(test_loader.dataset)
-        objective /= len(test_loader.dataset)
+        # objective /= len(test_loader.dataset)
+        objective /= accuracy  # Want to average objectives that are actually certified
         accuracy /= len(test_loader.dataset)
         print('\nAverage Test objective: {:.4f}'.format(objective))
         print('Percent correct: {:.4f}'.format(accuracy))
@@ -225,7 +225,7 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd):
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
         if args.save_sigma:
-            torch.save(smoothed_classifier.sigma, 'models/sigma' + comment + '_LAMBDA_' + str(lmbd))
+            torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_LAMBDA_' + str(lmbd))
         if args.create_tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
             writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
             writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
@@ -234,6 +234,12 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd):
     return lmbd
 
 def main():
+    comment = '_MODEL_' + args.model
+    comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
+    if args.create_tradeoff_plot:
+        comment = comment + '_TRADEOFF_PLOT'
+    writer = SummaryWriter(comment=comment)
+
     torch.manual_seed(args.seed)
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
@@ -246,8 +252,8 @@ def main():
 
     lmbd = args.lmbd
     for epoch in range(1, args.epochs + 1):
-        train(args, model, smoother, device, train_loader, optimizer, epoch, lmbd)
-        lmbd = test(args, model, smoother, device, test_loader, epoch, lmbd)
+        train(args, model, smoother, device, train_loader, optimizer, epoch, lmbd, writer)
+        lmbd = test(args, model, smoother, device, test_loader, epoch, lmbd, writer)
         scheduler.step()
 
     writer.close()

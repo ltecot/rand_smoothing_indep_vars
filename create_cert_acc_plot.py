@@ -4,7 +4,7 @@ from certify import load_dataset, load_model, calculate_objective
 
 from mnist_train import Net
 from smoothing import Smooth
-from datasets import get_dataset, get_input_dim, get_num_classes, get_input_dim
+from datasets import get_input_dim, get_num_classes
 from architectures import get_architecture
 
 import argparse
@@ -16,7 +16,8 @@ from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from torch.optim.lr_scheduler import StepLR
 import matplotlib.pyplot as plt
-from torch.utils.tensorboard import SummaryWriter
+import numpy as np
+# from torch.utils.tensorboard import SummaryWriter
 
 
 parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
@@ -38,18 +39,18 @@ parser.add_argument("--N-train", type=int, default=100, help="number of samples 
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
 # This sigma is also used as the minimum sigma in the min sigma objective
 # parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
-# parser.add_argument('--batch-size', type=int, default=8, metavar='N',
-#                     help='input batch size for training (default: 64)')
-# parser.add_argument('--test-batch-size', type=int, default=8, metavar='N', # 1000
-#                     help='input batch size for testing (default: 1000)')
+parser.add_argument('--batch-size', type=int, default=8, metavar='N',
+                    help='Not important for this, ignore')
+parser.add_argument('--test-batch-size', type=int, default=8, metavar='N', # 1000
+                    help='Not important for this, ignore')
 # parser.add_argument('--epochs', type=int, default=20, metavar='N',
 #                     help='number of epochs to train (default: 14)')
 # parser.add_argument('--lr', type=float, default=2.0, metavar='LR',
 #                     help='learning rate (default: 1.0)')
 # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
 #                     help='Learning rate step gamma (default: 0.7)')
-# parser.add_argument('--no-cuda', action='store_true', default=False,
-#                     help='disables CUDA training')
+parser.add_argument('--no-cuda', action='store_true', default=False,
+                    help='disables CUDA training')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
 # parser.add_argument('--log-interval', type=int, default=10, metavar='N',
@@ -58,6 +59,7 @@ parser.add_argument('--seed', type=int, default=1, metavar='S',
 #                     help='Save the sigma vector')
 # parser.add_argument('--gpu', type=int, default=0,
 #                     help='The gpu number you are running on.')
+args = parser.parse_args()
 
 # Return the objective value for each data point in the test set.
 def calculate_test_set_objective(args, model, smoothed_classifier, device, test_loader):
@@ -68,11 +70,12 @@ def calculate_test_set_objective(args, model, smoothed_classifier, device, test_
             data, target = data.to(device), target.to(device)
             for i in range(data.shape[0]):
                 prediction, icdf_pabar = smoothed_classifier.certify(data[i], args.N0, args.N, args.alpha, args.batch_smooth)
-                if prediction == target[i]:  # If wrong objective is always not added to cert. acc., so use -inf
+                # print(icdf_pabar)
+                if prediction != target[i]:  # If wrong objective is always not added to cert. acc., so use -inf
                     objectives.append(float("-inf"))
                 else:
                     objectives.append(calculate_objective(True, args.objective, smoothed_classifier.sigma, icdf_pabar).item())
-    return sort(objectives)
+    return sorted(objectives)
 
 # def get_models(dataset, device):
 #     if dataset == "cifar10":
@@ -86,24 +89,32 @@ def calculate_test_set_objective(args, model, smoothed_classifier, device, test_
 #         raise Exception("Must enter a valid dataset name")
 
 # Load sigma vectors for when models with a lambda are trained. Placeholder for now.
-def get_sigma_vects(dataset):
-    if dataset == "cifar10":
+def get_sigma_vects(model, dataset):
+    # Load sigmas
+    if model == "mnist":
+        # return {"$\lambda$ = 0.0000000001": 0.0000000001 * torch.ones(get_input_dim(dataset))}
+        return {"$\lambda$ = 0.01": 0.01 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 0.10": 0.10 * torch.ones(get_input_dim(dataset))}
+    elif model == "cifar10":
         return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.0": 1.0 * torch.ones(get_input_dim(dataset))}
-    elif dataset == "cifar10_robust":
-        pass
+    elif model == "cifar10_robust":
+        return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.0": 1.0 * torch.ones(get_input_dim(dataset))}
 
 # Load sigma values for original method testing.
-def get_sigma_vals(dataset)
-    if dataset == "cifar10":
+def get_sigma_vals(model):
+    if model == "mnist":
+        return {"$\sigma$ = 0.25": 0.25, "$\sigma$ = 0.50": 0.50}
+    elif model == "cifar10":
         return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 1.00": 1.00}
-    elif dataset == "cifar10_robust":
-        pass
+    elif model == "cifar10_robust":
+        return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 1.00": 1.00}
 
 # Plots a line for a smoother defined by the sigma
-def plot_sigma_line(args, model, sig_name, sigma, device, test_loader)
+def plot_sigma_line(args, model, sig_name, sigma, device, test_loader):
     smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=sigma, indep_vars=True, data_shape=get_input_dim(args.dataset))
     objectives = calculate_test_set_objective(args, model, smoother, device, test_loader)
     accuracy = np.linspace(1.0, 0.0, num=len(objectives))
+    # print(objectives)
+    # print(accuracy)
     while objectives[0] == float("-inf"):
         objectives = objectives[1:]
         accuracy = accuracy[1:]
@@ -116,30 +127,40 @@ def main():
 
     _, test_loader = load_dataset(args, use_cuda)    
     model = load_model(args.model, device)
-    sigma_vects = get_sigma_vects(args.model)
+    sigma_vects = get_sigma_vects(args.model, args.dataset)
     sigma_vals = get_sigma_vals(args.model)
+    # sigma_vals = {}
 
     with torch.no_grad():
         for sig_name, sigma in sigma_vals.items():
+            print("Plotting " + sig_name)
             plot_sigma_line(args, model, sig_name, sigma, device, test_loader)
+            print("Plotted " + sig_name)
         for sig_name, sigma in sigma_vects.items():
+            print("Plotting " + sig_name)
             plot_sigma_line(args, model, sig_name, sigma, device, test_loader)
+            print("Plotted " + sig_name)
     
-    plt.style.use('seaborn-darkgrid')
+    # plt.style.use('seaborn-darkgrid')
+    plt.grid()
     plt.ylabel("Certified Accuracy")
     plt.legend()
     # Plot Title
-    if args.model == "cifar10":
+    if args.model == "mnist":
+        plt.title("Mnist Model")
+    elif args.model == "cifar10":
+        plt.title("Cifar10 Model")
+    elif args.model == "cifar10":
         plt.title("Cifar10 Model")
     elif args.model == "cifar10_robust":
         plt.title("Cifar10 Robust Model")
     # Plot X axis
     if args.objective == "certified_area":
-        plt.xlabel("Certified Area")
+        plt.xlabel("Certified Area (Log)")
     elif args.objective == "largest_delta_norm":
         plt.xlabel("Maximum Pertubation")
     
-    plt.savefig('cert_acc_' + args.objective + '_' + args.model + '.png')
+    plt.savefig('figures/cert_acc_' + args.objective + '_' + args.model + '.png')
 
 if __name__ == '__main__':
     main()

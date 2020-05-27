@@ -52,6 +52,8 @@ def get_input_dim(dataset: str):
         return [1, 28, 28]
     elif dataset == "cifar10":
         return [3, 32, 32]
+    elif dataset == "imagenet":
+        return [3, 224, 224]
 
 def get_normalize_layer(dataset: str) -> torch.nn.Module:
     """Return the dataset's normalization layer"""
@@ -70,6 +72,18 @@ def get_input_center_layer(dataset: str) -> torch.nn.Module:
     elif dataset == "cifar10":
         return InputCenterLayer(_CIFAR10_MEAN)
 
+# Just for us because we only have the ILSVRC2012 train set.
+def imagenet_trainset():
+    subdir = "datasets/imagenet"
+    transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor()
+    ])
+    dataset = datasets.ImageFolder(subdir, transform)
+    # print(len(dataset))
+    train_set, test_set, other_set = torch.utils.data.random_split(dataset, [50000, 10000, 1221167]) # Total size is 1281167
+    return train_set, test_set
 
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STDDEV = [0.229, 0.224, 0.225]
@@ -126,8 +140,10 @@ def _imagenet(split: str) -> Dataset:
     if split == "train":
         subdir = os.path.join(dir, "train")
         transform = transforms.Compose([
-            transforms.RandomSizedCrop(224),
-            transforms.RandomHorizontalFlip(),
+            # transforms.RandomSizedCrop(224),
+            # transforms.RandomHorizontalFlip(),
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
             transforms.ToTensor()
         ])
     elif split == "test":

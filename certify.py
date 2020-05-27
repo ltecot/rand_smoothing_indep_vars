@@ -5,7 +5,7 @@ from __future__ import print_function
 
 from mnist_train import Net
 from smoothing import Smooth
-from datasets import get_dataset, get_input_dim, get_num_classes
+from datasets import get_dataset, imagenet_trainset, get_input_dim, get_num_classes
 from architectures import get_architecture
 
 import argparse
@@ -33,6 +33,8 @@ parser.add_argument('--save-sigma', action='store_true', default=True,
                     help='Save the sigma vector')
 parser.add_argument("--lmbd", type=float, default=10000000000, help="tradeoff between accuracy and robust objective")
 parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
+parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
+                    help='learning rate (default: 1.0)')
 
 parser.add_argument('--indep-vars', action='store_true', default=True,  # TODO: Pretty much always true at this point. Refactor out later.
                     help='to use indep vars or not')
@@ -43,14 +45,12 @@ parser.add_argument("--N-train", type=int, default=64, help="number of samples t
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
 # This sigma is also used as the minimum sigma in the min sigma objective
 parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
-parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+parser.add_argument('--batch-size', type=int, default=1, metavar='N',
                     help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
+parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=20, metavar='N',
                     help='number of epochs to train (default: 14)')
-parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
-                    help='learning rate (default: 1.0)')
 # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
 #                     help='Learning rate step gamma (default: 0.7)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -64,11 +64,11 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 
 args = parser.parse_args()
 
-comment = '_MODEL_' + args.model
-comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
-if args.create_tradeoff_plot:
-    comment = comment + '_TRADEOFF_PLOT'
-# comment = "Testing"
+# comment = '_MODEL_' + args.model
+# comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
+# if args.create_tradeoff_plot:
+#     comment = comment + '_TRADEOFF_PLOT'
+comment = "Testing"
 
 # GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
 
@@ -94,6 +94,11 @@ def load_dataset(args, use_cuda):
         train_loader = torch.utils.data.DataLoader(get_dataset("cifar10", "train"), batch_size=args.batch_size, shuffle=True, **kwargs)
         test_loader = torch.utils.data.DataLoader(get_dataset("cifar10", "test"), batch_size=args.test_batch_size, shuffle=True, **kwargs)
     # elif args.dataset == "imagenet": # Needs some extra file stuff before this will work
+    elif args.dataset == "imagenet":
+        kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+        train_set, test_set = imagenet_trainset()
+        train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size, shuffle=True, **kwargs)
+        test_loader = torch.utils.data.DataLoader(test_set, batch_size=args.test_batch_size, shuffle=True, **kwargs)
     else:
         raise Exception("Must enter a valid dataset name")
     return train_loader, test_loader
@@ -109,6 +114,14 @@ def load_model(model_name, device):
     elif model_name == "cifar10_robust":
         checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_512/cifar10/resnet110/noise_0.12/checkpoint.pth.tar")
         model = get_architecture(checkpoint["arch"], "cifar10")
+        model.load_state_dict(checkpoint['state_dict'])
+    elif model_name == "imagenet":
+        checkpoint = torch.load("models/pretrained_models/imagenet/PGD_1step/imagenet/eps_127/resnet50/noise_0.25/checkpoint.pth.tar")
+        model = get_architecture(checkpoint["arch"], "imagenet")
+        model.load_state_dict(checkpoint['state_dict'])
+    elif model_name == "imagenet_robust":
+        checkpoint = torch.load("models/pretrained_models/imagenet/PGD_1step/imagenet/eps_1024/resnet50/noise_0.25/checkpoint.pth.tar")
+        model = get_architecture(checkpoint["arch"], "imagenet")
         model.load_state_dict(checkpoint['state_dict'])
     else:
         raise Exception("Must enter a valid model name")
@@ -174,7 +187,9 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         avg_accuracy += accuracy
         ce_loss /= data.shape[0]
         # objective /= data.shape[0]
-        objective /= accuracy  # Want to average objectives that are actually certified
+        # print(objective)
+        if accuracy != 0:
+            objective /= accuracy  # Want to average objectives that are actually certified
         accuracy /= data.shape[0]
         loss = lmbd * ce_loss - objective
         loss.backward()
@@ -244,7 +259,7 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
             sigma_gaus_img = (sigma_gaus_img - torch.mean(sigma_gaus_img)) / torch.std(sigma_gaus_img)
             sigma_gaus_img = ((sigma_gaus_img * 0.25) + 0.5)  # Assuming normal dist, will put %95 of values in [0,1] range
             sigma_gaus_img = torch.clamp(sigma_gaus_img, 0, 1)  # Clips out of range values
-            writer.add_image('sigma_gaussian_normalized', sigma_img, epoch-1)
+            writer.add_image('sigma_gaussian_normalized', sigma_gaus_img, epoch-1)
             # save_image(sigma_img[0], 'gen_files/sigma_viz.png')
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)

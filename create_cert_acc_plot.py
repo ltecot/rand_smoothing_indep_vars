@@ -93,8 +93,9 @@ def calculate_test_set_objective(args, model, smoothed_classifier, device, test_
 def get_sigma_vects(model, dataset):
     # Load sigmas
     if model == "mnist":
-        return {}
-        # return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.00": 1.0 * torch.ones(get_input_dim(dataset))}
+        path1 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_10000.0'
+        path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-06'
+        return {"$\lambda = 10^4$": torch.load(path1), "$\lambda = 10^{-6}$": torch.load(path2)}
     elif model == "cifar10":
         return {}
         # return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.00": 1.0 * torch.ones(get_input_dim(dataset))}
@@ -105,7 +106,7 @@ def get_sigma_vects(model, dataset):
 # Load sigma values for original method testing.
 def get_sigma_vals(model):
     if model == "mnist":
-        return {"$\sigma$ = 0.80": 0.8, "$\sigma$ = 1.40": 1.40}
+        return {"$\sigma$ = 0.6": 0.7, "$\sigma$ = 1.4": 1.40}
     elif model == "cifar10":
         return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 1.00": 1.00}
     elif model == "cifar10_robust":
@@ -136,15 +137,15 @@ def main():
     # sigma_vals = {}
 
     with torch.no_grad():
-        for sig_name, sigma in sigma_vals.items():
-            print("Plotting " + sig_name)
-            plot_sigma_line(args, model, sig_name, sigma, device, test_loader)
-            print("Plotted " + sig_name)
         for sig_name, sigma in sigma_vects.items():
             print("Plotting " + sig_name)
             plot_sigma_line(args, model, sig_name, sigma, device, test_loader)
             print("Plotted " + sig_name)
-    
+        for sig_name, sigma in sigma_vals.items():
+            print("Plotting " + sig_name)
+            plot_sigma_line(args, model, sig_name, sigma, device, test_loader)
+            print("Plotted " + sig_name)
+        
     # plt.style.use('seaborn-darkgrid')
     plt.grid()
     plt.ylabel("Certified Accuracy")

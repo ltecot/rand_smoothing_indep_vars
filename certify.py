@@ -27,8 +27,6 @@ parser = argparse.ArgumentParser(description='Optimize and compare certified rad
 parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)  # TODO: Refactor out. Always determined by model anyways.
 parser.add_argument('--objective', type=str, default="")
-parser.add_argument('--indep-vars', action='store_true', default=True,  # TODO: Pretty much always true at this point. Refactor out later.
-                    help='to use indep vars or not')
 parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
                     help='forgo optimization and produce plot where lambda is automatically varied')
 parser.add_argument('--save-sigma', action='store_true', default=False,
@@ -36,6 +34,8 @@ parser.add_argument('--save-sigma', action='store_true', default=False,
 parser.add_argument("--lmbd", type=float, default=10000000000, help="tradeoff between accuracy and robust objective")
 parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
 
+parser.add_argument('--indep-vars', action='store_true', default=True,  # TODO: Pretty much always true at this point. Refactor out later.
+                    help='to use indep vars or not')
 parser.add_argument("--batch-smooth", type=int, default=64, help="batch size")
 parser.add_argument("--N0", type=int, default=64) # 100
 parser.add_argument("--N", type=int, default=512, help="number of samples to use") # 100000
@@ -49,7 +49,7 @@ parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 10
                     help='input batch size for testing (default: 1000)')
 parser.add_argument('--epochs', type=int, default=20, metavar='N',
                     help='number of epochs to train (default: 14)')
-parser.add_argument('--lr', type=float, default=0.05, metavar='LR',
+parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
                     help='learning rate (default: 1.0)')
 # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
 #                     help='Learning rate step gamma (default: 0.7)')
@@ -234,15 +234,22 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
         writer.add_scalar('sigma/stddev', torch.abs(smoothed_classifier.sigma).std(), epoch-1)
         # writer.add_scalar('Percent_Correct', perc_correct, epoch-1)
         if args.indep_vars:
+            # Linear Scaled Image
             sigma_img = torch.abs(smoothed_classifier.sigma)  # For image. Negative or positive makes no difference in our formulation.
             sigma_img = sigma_img - sigma_img.min()
             sigma_img = sigma_img / sigma_img.max()
-            writer.add_image('sigma', sigma_img, epoch-1)
+            writer.add_image('sigma_linear_normalized', sigma_img, epoch-1)
+            # Gaussian scaled image
+            sigma_gaus_img = torch.abs(smoothed_classifier.sigma)  # For image. Negative or positive makes no difference in our formulation.
+            sigma_gaus_img = (sigma_gaus_img - torch.mean(sigma_gaus_img)) / torch.std(sigma_gaus_img)
+            sigma_gaus_img = ((sigma_gaus_img * 0.25) + 0.5)  # Assuming normal dist, will put %95 of values in [0,1] range
+            sigma_gaus_img = torch.clamp(sigma_gaus_img, 0, 1)  # Clips out of range values
+            writer.add_image('sigma_gaussian_normalized', sigma_img, epoch-1)
             # save_image(sigma_img[0], 'gen_files/sigma_viz.png')
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
         if args.save_sigma:
-            torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_LAMBDA_' + str(lmbd))
+            torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_LAMBDA_' + str(lmbd) + '.pt')
         if args.create_tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
             writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
             # writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)

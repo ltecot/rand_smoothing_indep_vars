@@ -16,7 +16,7 @@ class Smooth(object):
     # to abstain, Smooth returns this int
     ABSTAIN = -1
 
-    def __init__(self, base_classifier: torch.nn.Module, num_classes: int, sigma: float, indep_vars=False, data_shape=None):
+    def __init__(self, base_classifier: torch.nn.Module, num_classes: int, sigma, indep_vars=False, data_shape=None):
         """
         :param base_classifier: maps from [batch x channel x height x width] to [batch x num_classes]
         :param num_classes:
@@ -25,7 +25,10 @@ class Smooth(object):
         self.base_classifier = base_classifier
         self.num_classes = num_classes
         if indep_vars:
-            self.sigma = torch.tensor(sigma * np.ones(data_shape), dtype=torch.float, device='cuda', requires_grad=True)
+            if torch.is_tensor(sigma):
+                self.sigma = torch.tensor(sigma, dtype=torch.float, device='cuda', requires_grad=True)
+            else:
+                self.sigma = torch.tensor(sigma * np.ones(data_shape), dtype=torch.float, device='cuda', requires_grad=True)
         else:
             self.sigma = torch.tensor(sigma, device='cuda', requires_grad=True)
         self.unit_norm = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())

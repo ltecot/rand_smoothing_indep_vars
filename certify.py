@@ -27,9 +27,9 @@ parser = argparse.ArgumentParser(description='Optimize and compare certified rad
 parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)  # TODO: Refactor out. Always determined by model anyways.
 parser.add_argument('--objective', type=str, default="")
-parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
+parser.add_argument('--create-tradeoff-plot', action='store_true', default=True,
                     help='forgo optimization and produce plot where lambda is automatically varied')
-parser.add_argument('--save-sigma', action='store_true', default=False,
+parser.add_argument('--save-sigma', action='store_true', default=True,
                     help='Save the sigma vector')
 parser.add_argument("--lmbd", type=float, default=10000000000, help="tradeoff between accuracy and robust objective")
 parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")

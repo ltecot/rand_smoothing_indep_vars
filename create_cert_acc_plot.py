@@ -22,14 +22,16 @@ import pickle
 
 # from math import exp
 
+# TODO: Put all args stuff in main func
 parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
 
 parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)
 parser.add_argument('--objective', type=str, default="certified_area")
-parser.add_argument('--tempsave', action='store_true', default=False)  # Will save plots to quick re-load
-parser.add_argument('--tempload', action='store_true', default=False)  # Will re-load any unchanged plots
+parser.add_argument('--tempsave', action='store_true', default=True)  # Will save plots to quick re-load
+parser.add_argument('--tempload', action='store_true', default=True)  # Will re-load any unchanged plots
 parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
+# parser.add_argument('--temp_pickle', type=str, default="figures/tempdata_robust.pkl")  # Pickle file to save plot data
 # parser.add_argument('--indep-vars', action='store_true', default=False,
 #                     help='to use indep vars or not')
 # parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
@@ -101,22 +103,22 @@ def get_sigma_vects(model, dataset):
         path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-06'
         return {"$\lambda = 100$": torch.load(path1), "$\lambda = 10^{-6}$": torch.load(path2)}
     elif model == "cifar10":
-        path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-12.pt'
-        path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-28.pt'
-        return {"$\lambda = 10^{-12}$": torch.load(path1), "$\lambda = 10^{-28}$": torch.load(path2)}
+        path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-10.pt'
+        path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-22.pt'
+        return {"$\lambda = 10^{-10}$": torch.load(path1), "$\lambda = 10^{-22}$": torch.load(path2)}
     elif model == "cifar10_robust":
-        path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-12.pt'
-        path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-28.pt'
-        return {"$\lambda = 10^{-12}$": torch.load(path1), "$\lambda = 10^{-28}$": torch.load(path2)}
+        path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-08.pt'
+        path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-26.pt'
+        return {"$\lambda = 10^{-8}$": torch.load(path1), "$\lambda = 10^{-26}$": torch.load(path2)}
 
 # Load sigma values for original method testing.
 def get_sigma_vals(model):
     if model == "mnist":
         return {"$\sigma$ = 0.8": 0.8, "$\sigma$ = 1.4": 1.4}
     elif model == "cifar10":
-        return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 1.00": 1.00}
+        return {"$\sigma$ = 0.15": 0.15, "$\sigma$ = 0.25": 0.25}
     elif model == "cifar10_robust":
-        return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 1.00": 1.00}
+        return {"$\sigma$ = 0.15": 0.15, "$\sigma$ = 0.2": 0.2}
 
 def load_pickle(args):
     if args.tempload:
@@ -170,7 +172,7 @@ def main():
             print("Plotting " + sig_name)
             plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl)
             print("Plotted " + sig_name)
-    write_pickle(args)
+    write_pickle(args, pkl)
 
     # plt.style.use('seaborn-darkgrid')
     plt.grid()

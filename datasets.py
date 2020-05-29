@@ -82,7 +82,7 @@ def imagenet_trainset():
     ])
     dataset = datasets.ImageFolder(subdir, transform)
     # print(len(dataset))
-    train_set, test_set, other_set = torch.utils.data.random_split(dataset, [50000, 10000, 1221167]) # Total size is 1281167
+    train_set, test_set, other_set = torch.utils.data.random_split(dataset, [5000, 1000, 1275167]) # Total size is 1281167
     return train_set, test_set
 
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]

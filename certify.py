@@ -22,6 +22,7 @@ from torch.utils.tensorboard import SummaryWriter
 # Slope of hinge loss to enforce min sigma objective.
 MIN_SIGMA_HINGE_SLOPE = 10000000000
 
+# TODO: Put all args stuff in main func
 parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
 
 parser.add_argument('--model', type=str)

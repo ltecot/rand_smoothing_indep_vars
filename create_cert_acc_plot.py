@@ -17,6 +17,7 @@ from torchvision.utils import save_image
 from torch.optim.lr_scheduler import StepLR
 import matplotlib.pyplot as plt
 import numpy as np
+import pickle
 # from torch.utils.tensorboard import SummaryWriter
 
 # from math import exp
@@ -26,6 +27,9 @@ parser = argparse.ArgumentParser(description='Optimize and compare certified rad
 parser.add_argument('--model', type=str)
 parser.add_argument('--dataset', type=str)
 parser.add_argument('--objective', type=str, default="certified_area")
+parser.add_argument('--tempsave', action='store_true', default=False)  # Will save plots to quick re-load
+parser.add_argument('--tempload', action='store_true', default=False)  # Will re-load any unchanged plots
+parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
 # parser.add_argument('--indep-vars', action='store_true', default=False,
 #                     help='to use indep vars or not')
 # parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
@@ -97,11 +101,13 @@ def get_sigma_vects(model, dataset):
         path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-06'
         return {"$\lambda = 100$": torch.load(path1), "$\lambda = 10^{-6}$": torch.load(path2)}
     elif model == "cifar10":
-        return {}
-        # return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.00": 1.0 * torch.ones(get_input_dim(dataset))}
+        path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-12.pt'
+        path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-28.pt'
+        return {"$\lambda = 10^{-12}$": torch.load(path1), "$\lambda = 10^{-28}$": torch.load(path2)}
     elif model == "cifar10_robust":
-        return {}
-        # return {"$\lambda$ = 0.12": 0.12 * torch.ones(get_input_dim(dataset)), "$\lambda$ = 1.00": 1.0 * torch.ones(get_input_dim(dataset))}
+        path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-12.pt'
+        path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-28.pt'
+        return {"$\lambda = 10^{-12}$": torch.load(path1), "$\lambda = 10^{-28}$": torch.load(path2)}
 
 # Load sigma values for original method testing.
 def get_sigma_vals(model):
@@ -112,17 +118,35 @@ def get_sigma_vals(model):
     elif model == "cifar10_robust":
         return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 1.00": 1.00}
 
+def load_pickle(args):
+    if args.tempload:
+        with open(args.temp_pickle, 'rb') as f:
+            return pickle.load(f)
+    else:
+        return {}
+
+def write_pickle(args, pkl):
+    if args.tempsave:
+        with open(args.temp_pickle, 'wb') as f:
+            pickle.dump(pkl, f, pickle.HIGHEST_PROTOCOL)
+
 # Plots a line for a smoother defined by the sigma
-def plot_sigma_line(args, model, sig_name, sigma, device, test_loader):
-    smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=sigma, indep_vars=True, data_shape=get_input_dim(args.dataset))
-    objectives = calculate_test_set_objective(args, model, smoother, device, test_loader)
-    accuracy = np.linspace(1.0, 0.0, num=len(objectives))
-    # print(objectives)
-    # print(accuracy)
-    while objectives[0] == float("-inf"):
-        objectives = objectives[1:]
-        accuracy = accuracy[1:]
-    # objectives = [exp(obj) for obj in objectives]
+def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl):
+    if args.tempload and sig_name in pkl:
+        objectives = pkl[sig_name][0]
+        accuracy = pkl[sig_name][1]
+    else:
+        smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=sigma, indep_vars=True, data_shape=get_input_dim(args.dataset))
+        objectives = calculate_test_set_objective(args, model, smoother, device, test_loader)
+        accuracy = np.linspace(1.0, 0.0, num=len(objectives))
+        # print(objectives)
+        # print(accuracy)
+        while objectives[0] == float("-inf"):
+            objectives = objectives[1:]
+            accuracy = accuracy[1:]
+        # objectives = [exp(obj) for obj in objectives]
+        if args.tempsave:
+            pkl[sig_name] = [objectives, accuracy]
     plt.plot(objectives, accuracy, label=sig_name)
 
 def main():
@@ -136,16 +160,18 @@ def main():
     sigma_vals = get_sigma_vals(args.model)
     # sigma_vals = {}
 
+    pkl = load_pickle(args)
     with torch.no_grad():
         for sig_name, sigma in sigma_vects.items():
             print("Plotting " + sig_name)
-            plot_sigma_line(args, model, sig_name, sigma, device, test_loader)
+            plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl)
             print("Plotted " + sig_name)
         for sig_name, sigma in sigma_vals.items():
             print("Plotting " + sig_name)
-            plot_sigma_line(args, model, sig_name, sigma, device, test_loader)
+            plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl)
             print("Plotted " + sig_name)
-        
+    write_pickle(args)
+
     # plt.style.use('seaborn-darkgrid')
     plt.grid()
     plt.ylabel("Certified Accuracy")
@@ -153,8 +179,6 @@ def main():
     # Plot Title
     if args.model == "mnist":
         plt.title("Mnist Model")
-    elif args.model == "cifar10":
-        plt.title("Cifar10 Model")
     elif args.model == "cifar10":
         plt.title("Cifar10 Model")
     elif args.model == "cifar10_robust":

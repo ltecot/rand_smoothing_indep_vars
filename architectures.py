@@ -34,6 +34,8 @@ def get_architecture(arch: str, dataset: str) -> torch.nn.Module:
     # give very similar results 
     # IF YOU USE ONE OF THESE FOR TRAINING, MAKE SURE
     # TO USE THE SAME WHEN CERTIFYING.
-    normalize_layer = get_normalize_layer(dataset)
-    # normalize_layer = get_input_center_layer(dataset)
+    if dataset == "imagenet":
+        normalize_layer = get_input_center_layer(dataset)
+    else:
+        normalize_layer = get_normalize_layer(dataset)
     return torch.nn.Sequential(normalize_layer, model)

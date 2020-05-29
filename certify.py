@@ -44,7 +44,7 @@ parser.add_argument("--N", type=int, default=512, help="number of samples to use
 parser.add_argument("--N-train", type=int, default=64, help="number of samples to use in training")
 parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
 # This sigma is also used as the minimum sigma in the min sigma objective
-parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
+parser.add_argument("--sigma", type=float, default=0.1, help="failure probability")
 parser.add_argument('--batch-size', type=int, default=1, metavar='N',
                     help='input batch size for training (default: 64)')
 parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
@@ -64,11 +64,11 @@ parser.add_argument('--log-interval', type=int, default=10, metavar='N',
 
 args = parser.parse_args()
 
-# comment = '_MODEL_' + args.model
-# comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
-# if args.create_tradeoff_plot:
-#     comment = comment + '_TRADEOFF_PLOT'
-comment = "Testing"
+comment = '_MODEL_' + args.model
+comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
+if args.create_tradeoff_plot:
+    comment = comment + '_TRADEOFF_PLOT'
+# comment = "Testing"
 
 # GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
 
@@ -257,7 +257,7 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
             # Gaussian scaled image
             sigma_gaus_img = torch.abs(smoothed_classifier.sigma)  # For image. Negative or positive makes no difference in our formulation.
             sigma_gaus_img = (sigma_gaus_img - torch.mean(sigma_gaus_img)) / torch.std(sigma_gaus_img)
-            sigma_gaus_img = ((sigma_gaus_img * 0.25) + 0.5)  # Assuming normal dist, will put %95 of values in [0,1] range
+            sigma_gaus_img = ((sigma_gaus_img * 0.5) + 0.5)  # Assuming normal dist, will put %95 of values in [0,1] range
             sigma_gaus_img = torch.clamp(sigma_gaus_img, 0, 1)  # Clips out of range values
             writer.add_image('sigma_gaussian_normalized', sigma_gaus_img, epoch-1)
             # save_image(sigma_img[0], 'gen_files/sigma_viz.png')

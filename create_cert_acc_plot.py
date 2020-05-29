@@ -103,9 +103,9 @@ def get_sigma_vects(model, dataset):
         path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-06'
         return {"$\lambda = 100$": torch.load(path1), "$\lambda = 10^{-6}$": torch.load(path2)}
     elif model == "cifar10":
-        path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-10.pt'
+        path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-12.pt'
         path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-22.pt'
-        return {"$\lambda = 10^{-10}$": torch.load(path1), "$\lambda = 10^{-22}$": torch.load(path2)}
+        return {"$\lambda = 10^{-12}$": torch.load(path1), "$\lambda = 10^{-22}$": torch.load(path2)}
     elif model == "cifar10_robust":
         path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-08.pt'
         path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-26.pt'
@@ -116,9 +116,9 @@ def get_sigma_vals(model):
     if model == "mnist":
         return {"$\sigma$ = 0.8": 0.8, "$\sigma$ = 1.4": 1.4}
     elif model == "cifar10":
-        return {"$\sigma$ = 0.15": 0.15, "$\sigma$ = 0.25": 0.25}
+        return {"$\sigma$ = 0.13": 0.13, "$\sigma$ = 0.14": 0.14}
     elif model == "cifar10_robust":
-        return {"$\sigma$ = 0.15": 0.15, "$\sigma$ = 0.2": 0.2}
+        return {"$\sigma$ = 0.15": 0.15, "$\sigma$ = 0.16": 0.16}
 
 def load_pickle(args):
     if args.tempload:
@@ -175,23 +175,24 @@ def main():
     write_pickle(args, pkl)
 
     # plt.style.use('seaborn-darkgrid')
+    plt.xlim(-7500, -2000)
     plt.grid()
     plt.ylabel("Certified Accuracy")
     plt.legend()
     # Plot Title
-    if args.model == "mnist":
-        plt.title("Mnist Model")
-    elif args.model == "cifar10":
-        plt.title("Cifar10 Model")
-    elif args.model == "cifar10_robust":
-        plt.title("Cifar10 Robust Model")
+    # if args.model == "mnist":
+    #     plt.title("MNIST")
+    # elif args.model == "cifar10":
+    #     plt.title("CIFAR10")
+    # elif args.model == "cifar10_robust":
+    #     plt.title("CIFAR10 Robust")
     # Plot X axis
     if args.objective == "certified_area":
         plt.xlabel("Certified Area")
         # plt.xlabel("Certified Area (Log)")
     elif args.objective == "largest_delta_norm":
         plt.xlabel("Maximum Pertubation")
-    
+
     plt.savefig('figures/cert_acc_' + args.objective + '_' + args.model + '.png')
 
 if __name__ == '__main__':

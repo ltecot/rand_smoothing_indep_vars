@@ -22,55 +22,6 @@ from torch.utils.tensorboard import SummaryWriter
 # Slope of hinge loss to enforce min sigma objective.
 MIN_SIGMA_HINGE_SLOPE = 10000000000
 
-# TODO: Put all args stuff in main func
-parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
-
-parser.add_argument('--model', type=str)
-parser.add_argument('--dataset', type=str)  # TODO: Refactor out. Always determined by model anyways.
-parser.add_argument('--objective', type=str, default="")
-parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
-                    help='forgo optimization and produce plot where lambda is automatically varied')
-parser.add_argument('--save-sigma', action='store_true', default=True,
-                    help='Save the sigma vector')
-parser.add_argument("--lmbd", type=float, default=10000000000, help="tradeoff between accuracy and robust objective")
-parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
-parser.add_argument('--lr', type=float, default=0.01, metavar='LR',
-                    help='learning rate (default: 1.0)')
-
-parser.add_argument('--indep-vars', action='store_true', default=True,  # TODO: Pretty much always true at this point. Refactor out later.
-                    help='to use indep vars or not')
-parser.add_argument("--batch-smooth", type=int, default=64, help="batch size")
-parser.add_argument("--N0", type=int, default=64) # 100
-parser.add_argument("--N", type=int, default=512, help="number of samples to use") # 100000
-parser.add_argument("--N-train", type=int, default=64, help="number of samples to use in training")
-parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
-# This sigma is also used as the minimum sigma in the min sigma objective
-parser.add_argument("--sigma", type=float, default=0.1, help="failure probability")
-parser.add_argument('--batch-size', type=int, default=16, metavar='N',  # TODO: combine batch sizes, should be same basically
-                    help='input batch size for training (default: 64)')
-parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
-                    help='input batch size for testing (default: 1000)')
-parser.add_argument('--epochs', type=int, default=20, metavar='N',
-                    help='number of epochs to train (default: 14)')
-# parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
-#                     help='Learning rate step gamma (default: 0.7)')
-parser.add_argument('--no-cuda', action='store_true', default=False,
-                    help='disables CUDA training')
-parser.add_argument('--seed', type=int, default=1, metavar='S',
-                    help='random seed (default: 1)')
-parser.add_argument('--log-interval', type=int, default=10, metavar='N',
-                    help='how many batches to wait before logging training status')
-# parser.add_argument('--gpu', type=int, default=0,
-#                     help='The gpu number you are running on.')
-
-args = parser.parse_args()
-
-comment = '_MODEL_' + args.model
-comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
-if args.create_tradeoff_plot:
-    comment = comment + '_TRADEOFF_PLOT'
-# comment = "Testing"
-
 # GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
 
 def load_dataset(args, use_cuda):
@@ -138,8 +89,8 @@ def calculate_objective(indep_vars, objective, sigma, icdf_pabar):
     else:
         if objective == "largest_delta_norm":
             objective = torch.norm(sigma, p=2) * icdf_pabar
-        elif objective == "minimum_sigma_largest_delta_norm":
-            objective = torch.norm(sigma, p=2) * icdf_pabar + MIN_SIGMA_HINGE_SLOPE * torch.sum(torch.min(sigma - args.sigma, torch.tensor([0.]).cuda()))
+        # elif objective == "minimum_sigma_largest_delta_norm":
+        #     objective = torch.norm(sigma, p=2) * icdf_pabar + MIN_SIGMA_HINGE_SLOPE * torch.sum(torch.min(sigma - args.sigma, torch.tensor([0.]).cuda()))
         elif objective == "certified_area":
             sigma = torch.abs(sigma)  # For log calculation. Negative or positive makes no difference in our formulation.
             eps = 0.000000001 # To prevent log from returning infinity.
@@ -161,7 +112,7 @@ def calculate_objective(indep_vars, objective, sigma, icdf_pabar):
 #     lambda_param * F.cross_entropy(model_output, true_class) + objective_value
 
 def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch, lmbd, writer):
-    model.train()
+    # model.train()
     avg_ce_loss = torch.tensor([0.0]).cuda()
     avg_objective = torch.tensor([0.0]).cuda()
     avg_accuracy = 0
@@ -217,8 +168,8 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
     writer.add_scalar('accuracy/train', avg_accuracy, epoch-1)
 
 # TODO: Record and report test accuracy of the smoothed model too.
-def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, writer):
-    model.eval()
+def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, writer, comment):
+    # model.eval()
     # test_loss = 0
     objective = 0
     accuracy = 0
@@ -274,6 +225,55 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
     return lmbd
 
 def main():
+
+    parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
+
+    parser.add_argument('--model', type=str)
+    parser.add_argument('--dataset', type=str)  # TODO: Refactor out. Always determined by model anyways.
+    parser.add_argument('--objective', type=str, default="")
+    parser.add_argument('--create-tradeoff-plot', action='store_true', default=True,
+                        help='forgo optimization and produce plot where lambda is automatically varied')
+    parser.add_argument('--save-sigma', action='store_true', default=True,
+                        help='Save the sigma vector')
+    parser.add_argument("--lmbd", type=float, default=1e10, help="tradeoff between accuracy and robust objective")
+    parser.add_argument("--lmbd-div", type=float, default=1e2, help="divider of lambda used when creating tradeoff plots")
+    parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
+                        help='learning rate (default: 1.0)')
+
+    parser.add_argument('--indep-vars', action='store_true', default=True,  # TODO: Pretty much always true at this point. Refactor out later.
+                        help='to use indep vars or not')
+    parser.add_argument("--batch-smooth", type=int, default=64, help="batch size")
+    parser.add_argument("--N0", type=int, default=64) # 100
+    parser.add_argument("--N", type=int, default=512, help="number of samples to use") # 100000
+    parser.add_argument("--N-train", type=int, default=64, help="number of samples to use in training")
+    parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
+    # This sigma is also used as the minimum sigma in the min sigma objective
+    parser.add_argument("--sigma", type=float, default=0.1, help="failure probability")
+    parser.add_argument('--batch-size', type=int, default=16, metavar='N',  # TODO: combine batch sizes, should be same basically
+                        help='input batch size for training (default: 64)')
+    parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
+                        help='input batch size for testing (default: 1000)')
+    parser.add_argument('--epochs', type=int, default=20, metavar='N',
+                        help='number of epochs to train (default: 14)')
+    # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
+    #                     help='Learning rate step gamma (default: 0.7)')
+    parser.add_argument('--no-cuda', action='store_true', default=False,
+                        help='disables CUDA training')
+    parser.add_argument('--seed', type=int, default=1, metavar='S',
+                        help='random seed (default: 1)')
+    parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+                        help='how many batches to wait before logging training status')
+    # parser.add_argument('--gpu', type=int, default=0,
+    #                     help='The gpu number you are running on.')
+
+    args = parser.parse_args()
+
+    comment = '_MODEL_' + args.model
+    comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
+    if args.create_tradeoff_plot:
+        comment = comment + '_TRADEOFF_PLOT'
+    # comment = "Testing"
+
     writer = SummaryWriter(comment=comment)
 
     torch.manual_seed(args.seed)
@@ -282,6 +282,7 @@ def main():
 
     train_loader, test_loader = load_dataset(args, use_cuda)    
     model = load_model(args.model, device)
+    model.eval()
     smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=args.sigma, indep_vars=args.indep_vars, data_shape=get_input_dim(args.dataset))
     # optimizer = optim.Adadelta([smoother.sigma], lr=args.lr)
     optimizer = optim.Adam([smoother.sigma], lr=args.lr)
@@ -290,7 +291,7 @@ def main():
     lmbd = args.lmbd
     for epoch in range(1, args.epochs + 1):
         train(args, model, smoother, device, train_loader, optimizer, epoch, lmbd, writer)
-        lmbd = test(args, model, smoother, device, test_loader, epoch, lmbd, writer)
+        lmbd = test(args, model, smoother, device, test_loader, epoch, lmbd, writer, comment)
         # scheduler.step()
 
     writer.close()

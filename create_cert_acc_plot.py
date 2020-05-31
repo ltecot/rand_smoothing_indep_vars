@@ -22,52 +22,6 @@ import pickle
 
 # from math import exp
 
-# TODO: Put all args stuff in main func
-parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
-
-parser.add_argument('--model', type=str)
-parser.add_argument('--dataset', type=str)
-parser.add_argument('--objective', type=str, default="certified_area")
-parser.add_argument('--tempsave', action='store_true', default=True)  # Will save plots to quick re-load
-parser.add_argument('--tempload', action='store_true', default=True)  # Will re-load any unchanged plots
-parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
-# parser.add_argument('--temp_pickle', type=str, default="figures/tempdata_robust.pkl")  # Pickle file to save plot data
-# parser.add_argument('--indep-vars', action='store_true', default=False,
-#                     help='to use indep vars or not')
-# parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
-#                     help='forgo optimization and produce plot where lambda is automatically varied')
-# parser.add_argument("--lmbd", type=float, default=100000000000, help="tradeoff between accuracy and robust objective")
-# parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
-
-parser.add_argument("--batch-smooth", type=int, default=1000, help="batch size")
-parser.add_argument("--N0", type=int, default=100) # 100
-parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
-parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
-parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
-# This sigma is also used as the minimum sigma in the min sigma objective
-# parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
-parser.add_argument('--batch-size', type=int, default=8, metavar='N',
-                    help='Not important for this, ignore')
-parser.add_argument('--test-batch-size', type=int, default=8, metavar='N', # 1000
-                    help='Not important for this, ignore')
-# parser.add_argument('--epochs', type=int, default=20, metavar='N',
-#                     help='number of epochs to train (default: 14)')
-# parser.add_argument('--lr', type=float, default=2.0, metavar='LR',
-#                     help='learning rate (default: 1.0)')
-# parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
-#                     help='Learning rate step gamma (default: 0.7)')
-parser.add_argument('--no-cuda', action='store_true', default=False,
-                    help='disables CUDA training')
-parser.add_argument('--seed', type=int, default=1, metavar='S',
-                    help='random seed (default: 1)')
-# parser.add_argument('--log-interval', type=int, default=10, metavar='N',
-#                     help='how many batches to wait before logging training status')
-# parser.add_argument('--save-sigma', action='store_true', default=False,
-#                     help='Save the sigma vector')
-# parser.add_argument('--gpu', type=int, default=0,
-#                     help='The gpu number you are running on.')
-args = parser.parse_args()
-
 # Return the objective value for each data point in the test set.
 def calculate_test_set_objective(args, model, smoothed_classifier, device, test_loader):
     model.eval()
@@ -110,6 +64,14 @@ def get_sigma_vects(model, dataset):
         path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-08.pt'
         path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-26.pt'
         return {"$\lambda = 10^{-8}$": torch.load(path1), "$\lambda = 10^{-26}$": torch.load(path2)}
+    elif model == "imagenet":
+        path1 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-06.pt'
+        path2 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-28.pt'
+        return {"$\lambda = 10^{-6}$": torch.load(path1), "$\lambda = 10^{-28}$": torch.load(path2)}
+    elif model == "imagenet_robust":
+        path1 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-10.pt'
+        path2 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-18.pt'
+        return {"$\lambda = 10^{-10}$": torch.load(path1), "$\lambda = 10^{-18}$": torch.load(path2)}
 
 # Load sigma values for original method testing.
 def get_sigma_vals(model):
@@ -119,6 +81,10 @@ def get_sigma_vals(model):
         return {"$\sigma$ = 0.13": 0.13, "$\sigma$ = 0.14": 0.14}
     elif model == "cifar10_robust":
         return {"$\sigma$ = 0.15": 0.15, "$\sigma$ = 0.16": 0.16}
+    elif model == "imagenet":
+        return {"$\sigma$ = 0.23": 0.23, "$\sigma$ = 0.28": 0.28}
+    elif model == "imagenet_robust":
+        return {"$\sigma$ = 0.22": 0.22, "$\sigma$ = 0.24": 0.24}
 
 def load_pickle(args):
     if args.tempload:
@@ -152,12 +118,58 @@ def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl):
     plt.plot(objectives, accuracy, label=sig_name)
 
 def main():
+    parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
+
+    parser.add_argument('--model', type=str)
+    parser.add_argument('--dataset', type=str)
+    parser.add_argument('--objective', type=str, default="certified_area")
+    parser.add_argument('--tempsave', action='store_true', default=True)  # Will save plots to quick re-load
+    parser.add_argument('--tempload', action='store_true', default=False)  # Will re-load any unchanged plots
+    parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
+    # parser.add_argument('--temp_pickle', type=str, default="figures/tempdata_robust.pkl")  # Pickle file to save plot data
+    # parser.add_argument('--indep-vars', action='store_true', default=False,
+    #                     help='to use indep vars or not')
+    # parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
+    #                     help='forgo optimization and produce plot where lambda is automatically varied')
+    # parser.add_argument("--lmbd", type=float, default=100000000000, help="tradeoff between accuracy and robust objective")
+    # parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
+
+    parser.add_argument("--batch-smooth", type=int, default=64, help="batch size")
+    parser.add_argument("--N0", type=int, default=100) # 100
+    parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
+    parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
+    parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
+    # This sigma is also used as the minimum sigma in the min sigma objective
+    # parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
+    parser.add_argument('--batch-size', type=int, default=1, metavar='N',
+                        help='Not important for this, ignore')
+    parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
+                        help='Not important for this, ignore')
+    # parser.add_argument('--epochs', type=int, default=20, metavar='N',
+    #                     help='number of epochs to train (default: 14)')
+    # parser.add_argument('--lr', type=float, default=2.0, metavar='LR',
+    #                     help='learning rate (default: 1.0)')
+    # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
+    #                     help='Learning rate step gamma (default: 0.7)')
+    parser.add_argument('--no-cuda', action='store_true', default=False,
+                        help='disables CUDA training')
+    parser.add_argument('--seed', type=int, default=1, metavar='S',
+                        help='random seed (default: 1)')
+    # parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+    #                     help='how many batches to wait before logging training status')
+    # parser.add_argument('--save-sigma', action='store_true', default=False,
+    #                     help='Save the sigma vector')
+    # parser.add_argument('--gpu', type=int, default=0,
+    #                     help='The gpu number you are running on.')
+    args = parser.parse_args()
+
     torch.manual_seed(args.seed)
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
     _, test_loader = load_dataset(args, use_cuda)    
     model = load_model(args.model, device)
+    model.eval()
     sigma_vects = get_sigma_vects(args.model, args.dataset)
     sigma_vals = get_sigma_vals(args.model)
     # sigma_vals = {}

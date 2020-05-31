@@ -95,8 +95,8 @@ def main():
     #                     help='forgo optimization and produce plot where lambda is automatically varied')
     # parser.add_argument('--save-sigma', action='store_true', default=True,
     #                     help='Save the sigma vector')
-    parser.add_argument("--sigma", type=float, default=2.0, help="tradeoff between accuracy and robust objective")
-    parser.add_argument("--sigma_sub", type=float, default=0.2, help="divider of lambda used when creating tradeoff plots")
+    parser.add_argument("--sigma", type=float, default=0.2, help="tradeoff between accuracy and robust objective")
+    parser.add_argument("--sigma_sub", type=float, default=0.02, help="divider of lambda used when creating tradeoff plots")
     # parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
     #                     help='learning rate (default: 1.0)')
 
@@ -113,7 +113,7 @@ def main():
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
                         help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=10, metavar='N',
+    parser.add_argument('--epochs', type=int, default=11, metavar='N',
                         help='number of epochs to train (default: 14)')
     # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
     #                     help='Learning rate step gamma (default: 0.7)')

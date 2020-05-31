@@ -216,7 +216,7 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
         if args.save_sigma:
-            torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_LAMBDA_' + str(lmbd) + '.pt')
+            torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_LAMBDA_' + str(lmbd) + '_LR_' + str(args.lr) + '.pt')
         if args.create_tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
             writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
             # writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)

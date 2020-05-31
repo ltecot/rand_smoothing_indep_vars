@@ -82,7 +82,7 @@ def get_sigma_vals(model):
     elif model == "cifar10_robust":
         return {"$\sigma$ = 0.15": 0.15, "$\sigma$ = 0.16": 0.16}
     elif model == "imagenet":
-        return {"$\sigma$ = 0.23": 0.23, "$\sigma$ = 0.28": 0.28}
+        return {"$\sigma$ = 0.20": 0.20, "$\sigma$ = 0.22": 0.22}
     elif model == "imagenet_robust":
         return {"$\sigma$ = 0.22": 0.22, "$\sigma$ = 0.24": 0.24}
 
@@ -124,7 +124,7 @@ def main():
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--objective', type=str, default="certified_area")
     parser.add_argument('--tempsave', action='store_true', default=True)  # Will save plots to quick re-load
-    parser.add_argument('--tempload', action='store_true', default=False)  # Will re-load any unchanged plots
+    parser.add_argument('--tempload', action='store_true', default=True)  # Will re-load any unchanged plots
     parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
     # parser.add_argument('--temp_pickle', type=str, default="figures/tempdata_robust.pkl")  # Pickle file to save plot data
     # parser.add_argument('--indep-vars', action='store_true', default=False,
@@ -187,7 +187,7 @@ def main():
     write_pickle(args, pkl)
 
     # plt.style.use('seaborn-darkgrid')
-    plt.xlim(-7500, -2000)
+    plt.xlim(-200000, -50000)
     plt.grid()
     plt.ylabel("Certified Accuracy")
     plt.legend()

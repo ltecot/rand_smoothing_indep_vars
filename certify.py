@@ -216,7 +216,7 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
         if args.save_sigma:
-            torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_LAMBDA_' + str(lmbd) + '_LR_' + str(args.lr) + '.pt')
+            torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_LAMBDA_' + str(lmbd) + '.pt')
         if args.create_tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
             writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
             # writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
@@ -249,9 +249,9 @@ def main():
     parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
     # This sigma is also used as the minimum sigma in the min sigma objective
     parser.add_argument("--sigma", type=float, default=0.1, help="failure probability")
-    parser.add_argument('--batch-size', type=int, default=16, metavar='N',  # TODO: combine batch sizes, should be same basically
+    parser.add_argument('--batch-size', type=int, default=1, metavar='N',  # TODO: combine batch sizes, should be same basically
                         help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
+    parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
                         help='input batch size for testing (default: 1000)')
     parser.add_argument('--epochs', type=int, default=20, metavar='N',
                         help='number of epochs to train (default: 14)')
@@ -268,10 +268,10 @@ def main():
 
     args = parser.parse_args()
 
-    comment = '_MODEL_' + args.model
-    comment = comment + '_OBJECTIVE_' + args.objective + '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
-    if args.create_tradeoff_plot:
-        comment = comment + '_TRADEOFF_PLOT'
+    comment = '_MODEL_' + args.model + '_OBJECTIVE_' + args.objective + '_LR_' + str(args.lr)
+    # comment = '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
+    # if args.create_tradeoff_plot:
+    #     comment = comment + '_TRADEOFF_PLOT'
     # comment = "Testing"
 
     writer = SummaryWriter(comment=comment)

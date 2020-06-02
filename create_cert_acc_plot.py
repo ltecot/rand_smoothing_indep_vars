@@ -53,38 +53,43 @@ def calculate_test_set_objective(args, model, smoothed_classifier, device, test_
 def get_sigma_vects(model, dataset):
     # Load sigmas
     if model == "mnist":
-        path1 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_100.0'
+        # path1 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_100.0'
         path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-06'
-        return {"$\lambda = 100$": torch.load(path1), "$\lambda = 10^{-6}$": torch.load(path2)}
+        return {"$\lambda = 10^{-6}$": torch.load(path2)}
     elif model == "cifar10":
         path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-12.pt'
-        path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-22.pt'
-        return {"$\lambda = 10^{-12}$": torch.load(path1), "$\lambda = 10^{-22}$": torch.load(path2)}
+        # path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-22.pt'
+        # return {"$\lambda = 10^{-12}$": torch.load(path1), "$\lambda = 10^{-22}$": torch.load(path2)}
+        return {"$\lambda = 10^{-12}$": torch.load(path1)}
     elif model == "cifar10_robust":
-        path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-08.pt'
-        path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-26.pt'
-        return {"$\lambda = 10^{-8}$": torch.load(path1), "$\lambda = 10^{-26}$": torch.load(path2)}
+        path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-20.pt'
+        # path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-26.pt'
+        # return {"$\lambda = 10^{-8}$": torch.load(path1), "$\lambda = 10^{-26}$": torch.load(path2)}
+        return {"$\lambda = 10^{-20}$": torch.load(path1)}
     elif model == "imagenet":
-        path1 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-06.pt'
-        path2 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-28.pt'
-        return {"$\lambda = 10^{-6}$": torch.load(path1), "$\lambda = 10^{-28}$": torch.load(path2)}
+        path1 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-26.pt'
+        # path2 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-28.pt'
+        # return {"$\lambda = 10^{-6}$": torch.load(path1), "$\lambda = 10^{-28}$": torch.load(path2)}
+        return {"$\lambda = 10^{-26}$": torch.load(path1)}
     elif model == "imagenet_robust":
-        path1 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-10.pt'
-        path2 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-18.pt'
-        return {"$\lambda = 10^{-10}$": torch.load(path1), "$\lambda = 10^{-18}$": torch.load(path2)}
+        path1 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-18.pt'
+        # path1 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-20.pt'
+        # path2 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-18.pt'
+        # return {"$\lambda = 10^{-10}$": torch.load(path1), "$\lambda = 10^{-18}$": torch.load(path2)}
+        return {"$\lambda = 10^{-18}$": torch.load(path1)}
 
 # Load sigma values for original method testing.
 def get_sigma_vals(model):
     if model == "mnist":
-        return {"$\sigma$ = 0.8": 0.8, "$\sigma$ = 1.4": 1.4}
+        return {"$\sigma$ = 0.5": 0.5, "$\sigma$ = 1.4": 1.4}
     elif model == "cifar10":
-        return {"$\sigma$ = 0.13": 0.13, "$\sigma$ = 0.14": 0.14}
+        return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 0.13": 0.13}
     elif model == "cifar10_robust":
-        return {"$\sigma$ = 0.15": 0.15, "$\sigma$ = 0.16": 0.16}
+        return {"$\sigma$ = 0.14": 0.14, "$\sigma$ = 0.15": 0.15}
     elif model == "imagenet":
-        return {"$\sigma$ = 0.20": 0.20, "$\sigma$ = 0.22": 0.22}
+        return {"$\sigma$ = 0.22": 0.22, "$\sigma$ = 0.23": 0.23}
     elif model == "imagenet_robust":
-        return {"$\sigma$ = 0.22": 0.22, "$\sigma$ = 0.24": 0.24}
+        return {"$\sigma$ = 0.26": 0.26, "$\sigma$ = 0.27": 0.27}
 
 def load_pickle(args):
     if args.tempload:
@@ -100,7 +105,8 @@ def write_pickle(args, pkl):
 
 # Plots a line for a smoother defined by the sigma
 def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl):
-    if args.tempload and sig_name in pkl:
+    reload_list = []  # Temp workaround for quick re-loading specific lines without re-doing whole thing.
+    if args.tempload and sig_name in pkl and sig_name not in reload_list:
         objectives = pkl[sig_name][0]
         accuracy = pkl[sig_name][1]
     else:
@@ -124,7 +130,7 @@ def main():
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--objective', type=str, default="certified_area")
     parser.add_argument('--tempsave', action='store_true', default=True)  # Will save plots to quick re-load
-    parser.add_argument('--tempload', action='store_true', default=True)  # Will re-load any unchanged plots
+    parser.add_argument('--tempload', action='store_true', default=False)  # Will re-load any unchanged plots
     parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
     # parser.add_argument('--temp_pickle', type=str, default="figures/tempdata_robust.pkl")  # Pickle file to save plot data
     # parser.add_argument('--indep-vars', action='store_true', default=False,
@@ -141,9 +147,9 @@ def main():
     parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
     # This sigma is also used as the minimum sigma in the min sigma objective
     # parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
-    parser.add_argument('--batch-size', type=int, default=1, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                         help='Not important for this, ignore')
-    parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
+    parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
                         help='Not important for this, ignore')
     # parser.add_argument('--epochs', type=int, default=20, metavar='N',
     #                     help='number of epochs to train (default: 14)')
@@ -187,7 +193,7 @@ def main():
     write_pickle(args, pkl)
 
     # plt.style.use('seaborn-darkgrid')
-    plt.xlim(-200000, -50000)
+    # plt.xlim(-700000, 0)
     plt.grid()
     plt.ylabel("Certified Accuracy")
     plt.legend()

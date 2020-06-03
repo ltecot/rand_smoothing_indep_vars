@@ -95,24 +95,24 @@ def main():
     #                     help='forgo optimization and produce plot where lambda is automatically varied')
     # parser.add_argument('--save-sigma', action='store_true', default=True,
     #                     help='Save the sigma vector')
-    parser.add_argument("--sigma", type=float, default=0.4, help="tradeoff between accuracy and robust objective")
-    parser.add_argument("--sigma_sub", type=float, default=0.02, help="divider of lambda used when creating tradeoff plots")
+    parser.add_argument("--sigma", type=float, default=2, help="tradeoff between accuracy and robust objective")
+    parser.add_argument("--sigma_sub", type=float, default=0.1, help="divider of lambda used when creating tradeoff plots")
     # parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
     #                     help='learning rate (default: 1.0)')
+    parser.add_argument('--batch-size', type=int, default=128, metavar='N',  # TODO: combine batch sizes, should be same basically
+                        help='input batch size for training (default: 64)')
+    parser.add_argument('--test-batch-size', type=int, default=128, metavar='N', # 1000
+                        help='input batch size for testing (default: 1000)')
 
     # parser.add_argument('--indep-vars', action='store_true', default=True,  # TODO: Pretty much always true at this point. Refactor out later.
     #                     help='to use indep vars or not')
-    parser.add_argument("--batch-smooth", type=int, default=64, help="batch size")
-    parser.add_argument("--N0", type=int, default=64) # 100
-    parser.add_argument("--N", type=int, default=512, help="number of samples to use") # 100000
-    parser.add_argument("--N-train", type=int, default=64, help="number of samples to use in training")
+    parser.add_argument("--batch-smooth", type=int, default=100, help="batch size")
+    parser.add_argument("--N0", type=int, default=100) # 100
+    parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
+    parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
     parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
     # This sigma is also used as the minimum sigma in the min sigma objective
     # parser.add_argument("--sigma", type=float, default=0.1, help="failure probability")
-    parser.add_argument('--batch-size', type=int, default=16, metavar='N',  # TODO: combine batch sizes, should be same basically
-                        help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
-                        help='input batch size for testing (default: 1000)')
     parser.add_argument('--epochs', type=int, default=21, metavar='N',
                         help='number of epochs to train (default: 14)')
     # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',

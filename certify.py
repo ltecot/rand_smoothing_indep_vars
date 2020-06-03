@@ -26,7 +26,7 @@ MIN_SIGMA_HINGE_SLOPE = 10000000000
 
 def load_dataset(args, use_cuda):
     if args.dataset == "mnist":
-        kwargs = {'pin_memory': True} if use_cuda else {}  # 'num_workers': 1, 
+        kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
         train_loader = torch.utils.data.DataLoader(
             datasets.MNIST('../data', train=True, download=True,
                         transform=transforms.Compose([
@@ -36,6 +36,22 @@ def load_dataset(args, use_cuda):
             batch_size=args.batch_size, shuffle=True, **kwargs)
         test_loader = torch.utils.data.DataLoader(
             datasets.MNIST('../data', train=False, transform=transforms.Compose([
+                            transforms.ToTensor(),
+                            transforms.Normalize((0.1307,), (0.3081,))
+                        ])),
+            batch_size=args.test_batch_size, shuffle=True, **kwargs)  # Smoothing only can handle one at a time anyways right now
+            # batch_size=args.test_batch_size, shuffle=True, **kwargs)
+    elif args.dataset == "fashion_mnist":
+        kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+        train_loader = torch.utils.data.DataLoader(
+            datasets.FashionMNIST('datasets', train=True, download=True,
+                        transform=transforms.Compose([
+                            transforms.ToTensor(),
+                            transforms.Normalize((0.1307,), (0.3081,))
+                        ])),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
+        test_loader = torch.utils.data.DataLoader(
+            datasets.FashionMNIST('datasets', train=False, transform=transforms.Compose([
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
                         ])),
@@ -59,6 +75,9 @@ def load_model(model_name, device):
     if model_name == "mnist":
         model = Net().to(device)
         model.load_state_dict(torch.load('mnist_cnn.pt'))
+    elif model_name == "fashion_mnist":
+        model = Net().to(device)
+        model.load_state_dict(torch.load('models/fashion_mnist_cnn.pt'))
     elif model_name == "cifar10":
         checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_64/cifar10/resnet110/noise_0.12/checkpoint.pth.tar")
         model = get_architecture(checkpoint["arch"], "cifar10")
@@ -216,8 +235,8 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
             # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
         # print(smoothed_classifier.sigma)
         if args.save_sigma:
-            torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_LAMBDA_' + str(lmbd) + '.pt')
-        if args.create_tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
+            torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_EPOCH_' + str(epoch) + '.pt')
+        if args.tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
             writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
             # writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
             # writer.add_scalar('tradeoff_plot/acc_sigma_mean', accuracy, smoothed_classifier.sigma.mean())
@@ -230,15 +249,30 @@ def main():
 
     parser.add_argument('--model', type=str)
     parser.add_argument('--dataset', type=str)  # TODO: Refactor out. Always determined by model anyways.
-    parser.add_argument('--objective', type=str, default="")
-    parser.add_argument('--create-tradeoff-plot', action='store_true', default=True,
+    parser.add_argument('--objective', type=str, default="certified_area")
+    parser.add_argument('--tradeoff_plot', action='store_true', default=False,
                         help='forgo optimization and produce plot where lambda is automatically varied')
+    parser.add_argument('--sigma_mod', action='store_true', default=True,
+                        help='Modulate sigma and re-optimize to create plot')
     parser.add_argument('--save-sigma', action='store_true', default=True,
                         help='Save the sigma vector')
     parser.add_argument("--lmbd", type=float, default=1e10, help="tradeoff between accuracy and robust objective")
     parser.add_argument("--lmbd-div", type=float, default=1e2, help="divider of lambda used when creating tradeoff plots")
     parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
                         help='learning rate (default: 1.0)')
+    parser.add_argument('--gamma', type=float, default=0.5, metavar='M',
+                        help='Learning rate step gamma (default: 0.7)')
+    parser.add_argument('--batch-size', type=int, default=1, metavar='N',  # TODO: combine batch sizes, should be same basically
+                        help='input batch size for training (default: 64)')
+    parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
+                        help='input batch size for testing (default: 1000)')
+    parser.add_argument("--sigma", type=float, default=0.35, help="failure probability")
+    parser.add_argument("--sigma_add", type=float, default=0.1, help="if sigma_mod, amount to add to sigma")
+    parser.add_argument('--epochs', type=int, default=50, metavar='N',
+                        help='number of epochs to train (default: 14)')
+    parser.add_argument('--sub_epochs', type=int, default=3, metavar='N',
+                        help='number of epochs to do for every sigma, if sigma mod')
+    parser.add_argument('--comment_add', type=str, default="")
 
     parser.add_argument('--indep-vars', action='store_true', default=True,  # TODO: Pretty much always true at this point. Refactor out later.
                         help='to use indep vars or not')
@@ -248,15 +282,6 @@ def main():
     parser.add_argument("--N-train", type=int, default=64, help="number of samples to use in training")
     parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
     # This sigma is also used as the minimum sigma in the min sigma objective
-    parser.add_argument("--sigma", type=float, default=0.1, help="failure probability")
-    parser.add_argument('--batch-size', type=int, default=1, metavar='N',  # TODO: combine batch sizes, should be same basically
-                        help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
-                        help='input batch size for testing (default: 1000)')
-    parser.add_argument('--epochs', type=int, default=20, metavar='N',
-                        help='number of epochs to train (default: 14)')
-    # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
-    #                     help='Learning rate step gamma (default: 0.7)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
@@ -268,13 +293,14 @@ def main():
 
     args = parser.parse_args()
 
-    comment = '_MODEL_' + args.model + '_OBJECTIVE_' + args.objective + '_LR_' + str(args.lr)
+    comment = '_MODEL_' + args.model + '_OBJECTIVE_' + args.objective + '_LR_' + str(args.lr) + '_GAMMA_' + str(args.gamma)
     # comment = '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
-    # if args.create_tradeoff_plot:
-    #     comment = comment + '_TRADEOFF_PLOT'
+    if args.tradeoff_plot:
+        comment = comment + '_TRADEOFF_PLOT'
+    elif args.sigma_mod:
+        comment = comment + '_SIGMA_MOD'
+    comment = comment + args.comment_add
     # comment = "Testing"
-
-    writer = SummaryWriter(comment=comment)
 
     torch.manual_seed(args.seed)
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -283,16 +309,31 @@ def main():
     train_loader, test_loader = load_dataset(args, use_cuda)    
     model = load_model(args.model, device)
     model.eval()
-    smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=args.sigma, indep_vars=args.indep_vars, data_shape=get_input_dim(args.dataset))
-    # optimizer = optim.Adadelta([smoother.sigma], lr=args.lr)
-    optimizer = optim.Adam([smoother.sigma], lr=args.lr)
-    # scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    writer = SummaryWriter(comment=comment)
 
-    lmbd = args.lmbd
-    for epoch in range(1, args.epochs + 1):
-        train(args, model, smoother, device, train_loader, optimizer, epoch, lmbd, writer)
-        lmbd = test(args, model, smoother, device, test_loader, epoch, lmbd, writer, comment)
-        # scheduler.step()
+    if args.sigma_mod:
+        sigma = args.sigma
+        for epoch in range(1, args.epochs + 1):
+            smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=sigma, indep_vars=args.indep_vars, data_shape=get_input_dim(args.dataset))
+            optimizer = optim.Adam([smoother.sigma], lr=args.lr)
+            scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+            lmbd = 0
+            for sub_epoch in range(1, args.sub_epochs + 1):
+                effective_epoch = (epoch - 1) * args.sub_epochs + sub_epoch
+                writer.add_scalar('sigma_mod/sigma_init', sigma, effective_epoch-1)
+                train(args, model, smoother, device, train_loader, optimizer, effective_epoch, lmbd, writer)
+                test(args, model, smoother, device, test_loader, effective_epoch, lmbd, writer, comment)
+                scheduler.step() 
+            sigma += args.sigma_add
+    else:
+        smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=args.sigma, indep_vars=args.indep_vars, data_shape=get_input_dim(args.dataset))
+        optimizer = optim.Adam([smoother.sigma], lr=args.lr)
+        scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+        lmbd = args.lmbd
+        for epoch in range(1, args.epochs + 1):
+            train(args, model, smoother, device, train_loader, optimizer, epoch, lmbd, writer)
+            lmbd = test(args, model, smoother, device, test_loader, epoch, lmbd, writer, comment)
+            scheduler.step()
 
     writer.close()
 

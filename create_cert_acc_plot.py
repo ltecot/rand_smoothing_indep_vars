@@ -53,9 +53,13 @@ def calculate_test_set_objective(args, model, smoothed_classifier, device, test_
 def get_sigma_vects(model, dataset):
     # Load sigmas
     if model == "mnist":
-        # path1 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_100.0'
-        path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-06'
-        return {"$\lambda = 10^{-6}$": torch.load(path2)}
+        path1 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_19.pt'
+        path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_39.pt'
+        return {"$\sigma_v = 0.8$": torch.load(path1), "$\sigma_v = 1.2$": torch.load(path2)}
+    if model == "fashion_mnist":
+        path1 = 'models/sigmas/sigma_MODEL_fashion_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_34.pt'
+        path2 = 'models/sigmas/sigma_MODEL_fashion_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_74.pt'
+        return {"$\sigma_v = 0.7$": torch.load(path1), "$\sigma_v = 1.5$": torch.load(path2)}
     elif model == "cifar10":
         path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-12.pt'
         # path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-22.pt'
@@ -81,7 +85,9 @@ def get_sigma_vects(model, dataset):
 # Load sigma values for original method testing.
 def get_sigma_vals(model):
     if model == "mnist":
-        return {"$\sigma$ = 0.5": 0.5, "$\sigma$ = 1.4": 1.4}
+        return {"$\sigma$ = 0.8": 0.8, "$\sigma$ = 1.2": 1.2}
+    elif model == "fashion_mnist":
+        return {"$\sigma$ = 0.6": 0.6, "$\sigma$ = 1.4": 1.4}
     elif model == "cifar10":
         return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 0.13": 0.13}
     elif model == "cifar10_robust":
@@ -129,7 +135,7 @@ def main():
     parser.add_argument('--model', type=str)
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--objective', type=str, default="certified_area")
-    parser.add_argument('--tempsave', action='store_true', default=True)  # Will save plots to quick re-load
+    parser.add_argument('--tempsave', action='store_true', default=False)  # Will save plots to quick re-load
     parser.add_argument('--tempload', action='store_true', default=False)  # Will re-load any unchanged plots
     parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
     # parser.add_argument('--temp_pickle', type=str, default="figures/tempdata_robust.pkl")  # Pickle file to save plot data
@@ -147,9 +153,9 @@ def main():
     parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
     # This sigma is also used as the minimum sigma in the min sigma objective
     # parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
-    parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                         help='Not important for this, ignore')
-    parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
+    parser.add_argument('--test-batch-size', type=int, default=128, metavar='N', # 1000
                         help='Not important for this, ignore')
     # parser.add_argument('--epochs', type=int, default=20, metavar='N',
     #                     help='number of epochs to train (default: 14)')
@@ -193,7 +199,7 @@ def main():
     write_pickle(args, pkl)
 
     # plt.style.use('seaborn-darkgrid')
-    # plt.xlim(-700000, 0)
+    plt.xlim(-4000, 1000)
     plt.grid()
     plt.ylabel("Certified Accuracy")
     plt.legend()

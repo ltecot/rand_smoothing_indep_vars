@@ -249,16 +249,7 @@ def main():
 
     parser.add_argument('--model', type=str)
     parser.add_argument('--dataset', type=str)  # TODO: Refactor out. Always determined by model anyways.
-    parser.add_argument('--objective', type=str, default="certified_area")
-    parser.add_argument('--tradeoff_plot', action='store_true', default=False,
-                        help='forgo optimization and produce plot where lambda is automatically varied')
-    parser.add_argument('--sigma_mod', action='store_true', default=True,
-                        help='Modulate sigma and re-optimize to create plot')
-    parser.add_argument('--save-sigma', action='store_true', default=True,
-                        help='Save the sigma vector')
-    parser.add_argument("--lmbd", type=float, default=1e10, help="tradeoff between accuracy and robust objective")
-    parser.add_argument("--lmbd-div", type=float, default=1e2, help="divider of lambda used when creating tradeoff plots")
-    parser.add_argument('--lr', type=float, default=0.001, metavar='LR',
+    parser.add_argument('--lr', type=float, default=0.0002, metavar='LR',
                         help='learning rate (default: 1.0)')
     parser.add_argument('--gamma', type=float, default=0.5, metavar='M',
                         help='Learning rate step gamma (default: 0.7)')
@@ -266,14 +257,23 @@ def main():
                         help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
                         help='input batch size for testing (default: 1000)')
-    parser.add_argument("--sigma", type=float, default=0.35, help="failure probability")
+    parser.add_argument("--sigma", type=float, default=0.55, help="failure probability")
     parser.add_argument("--sigma_add", type=float, default=0.1, help="if sigma_mod, amount to add to sigma")
     parser.add_argument('--epochs', type=int, default=50, metavar='N',
                         help='number of epochs to train (default: 14)')
-    parser.add_argument('--sub_epochs', type=int, default=3, metavar='N',
+    parser.add_argument('--sub_epochs', type=int, default=2, metavar='N',
                         help='number of epochs to do for every sigma, if sigma mod')
-    parser.add_argument('--comment_add', type=str, default="")
+    parser.add_argument('--comment_add', type=str, default="_R4")
+    parser.add_argument('--sigma_mod', action='store_true', default=True,
+                        help='Modulate sigma and re-optimize to create plot')
+    parser.add_argument('--save-sigma', action='store_true', default=True,
+                        help='Save the sigma vector')
 
+    parser.add_argument('--objective', type=str, default="certified_area")  # TODO: refactor out, always cert area
+    parser.add_argument('--tradeoff_plot', action='store_true', default=False,
+                        help='forgo optimization and produce plot where lambda is automatically varied')
+    parser.add_argument("--lmbd", type=float, default=1e10, help="tradeoff between accuracy and robust objective")
+    parser.add_argument("--lmbd-div", type=float, default=1e2, help="divider of lambda used when creating tradeoff plots")
     parser.add_argument('--indep-vars', action='store_true', default=True,  # TODO: Pretty much always true at this point. Refactor out later.
                         help='to use indep vars or not')
     parser.add_argument("--batch-smooth", type=int, default=64, help="batch size")

@@ -55,47 +55,47 @@ def get_sigma_vects(model, dataset):
     if model == "mnist":
         path1 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_19.pt'
         path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_39.pt'
-        return {"$\sigma_v = 0.8$": torch.load(path1), "$\sigma_v = 1.2$": torch.load(path2)}
+        return {"Nonisotropic $(\sigma = 0.8)$": torch.load(path1), "Nonisotropic $(\sigma = 1.2)$": torch.load(path2)}
     if model == "fashion_mnist":
         path1 = 'models/sigmas/sigma_MODEL_fashion_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_34.pt'
         path2 = 'models/sigmas/sigma_MODEL_fashion_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_74.pt'
-        return {"$\sigma_v = 0.7$": torch.load(path1), "$\sigma_v = 1.5$": torch.load(path2)}
-    elif model == "cifar10":
-        path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-12.pt'
-        # path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-22.pt'
-        # return {"$\lambda = 10^{-12}$": torch.load(path1), "$\lambda = 10^{-22}$": torch.load(path2)}
-        return {"$\lambda = 10^{-12}$": torch.load(path1)}
-    elif model == "cifar10_robust":
-        path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-20.pt'
-        # path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-26.pt'
-        # return {"$\lambda = 10^{-8}$": torch.load(path1), "$\lambda = 10^{-26}$": torch.load(path2)}
-        return {"$\lambda = 10^{-20}$": torch.load(path1)}
-    elif model == "imagenet":
-        path1 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-26.pt'
-        # path2 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-28.pt'
-        # return {"$\lambda = 10^{-6}$": torch.load(path1), "$\lambda = 10^{-28}$": torch.load(path2)}
-        return {"$\lambda = 10^{-26}$": torch.load(path1)}
-    elif model == "imagenet_robust":
-        path1 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-18.pt'
-        # path1 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1.0000000000000001e-20.pt'
-        # path2 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-18.pt'
-        # return {"$\lambda = 10^{-10}$": torch.load(path1), "$\lambda = 10^{-18}$": torch.load(path2)}
-        return {"$\lambda = 10^{-18}$": torch.load(path1)}
+        return {"Nonisotropic $(\sigma = 0.7)$": torch.load(path1), "Nonisotropic $(\sigma = 1.5)$": torch.load(path2)}
+    elif model == "cifar10":  # R6 - 3 and 5
+        path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_3.pt'
+        path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_5.pt'
+        return {"Nonisotropic $(\sigma = 0.2)$": torch.load(path1), "Nonisotropic $(\sigma = 0.3)$": torch.load(path2)}
+        # return {"$\lambda = 10^{-12}$": torch.load(path1)}
+    elif model == "cifar10_robust":  # R6 - 5 and 7
+        path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_5.pt'
+        path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
+        return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
+        # return {"$\lambda = 10^{-20}$": torch.load(path1)}
+    elif model == "imagenet":  # R6 - 4 and 7?
+        path1 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_4.pt'
+        path2 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
+        return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
+        # return {"$\lambda = 10^{-26}$": torch.load(path1)}
+    elif model == "imagenet_robust":  # R6 - 5? and 7 
+        # path1 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-18.pt'
+        path1 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_5.pt'
+        path2 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
+        return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
+        # return {"$\lambda = 10^{-18}$": torch.load(path1)}
 
 # Load sigma values for original method testing.
 def get_sigma_vals(model):
     if model == "mnist":
-        return {"$\sigma$ = 0.8": 0.8, "$\sigma$ = 1.2": 1.2}
+        return {"Isotropic $(\sigma = 0.8)$": 0.8, "Isotropic $(\sigma = 1.2)$": 1.2}
     elif model == "fashion_mnist":
-        return {"$\sigma$ = 0.6": 0.6, "$\sigma$ = 1.4": 1.4}
+        return {"Isotropic $(\sigma = 0.6)$": 0.6, "Isotropic $(\sigma = 1.4)$": 1.4}
     elif model == "cifar10":
-        return {"$\sigma$ = 0.12": 0.12, "$\sigma$ = 0.13": 0.13}
+        return {"Isotropic $(\sigma = 0.17)$": 0.17, "Isotropic $(\sigma = 0.20)$": 0.2}
     elif model == "cifar10_robust":
-        return {"$\sigma$ = 0.14": 0.14, "$\sigma$ = 0.15": 0.15}
+        return {"Isotropic $(\sigma = 0.20)$": 0.2, "Isotropic $(\sigma = 0.33)$": 0.33}
     elif model == "imagenet":
-        return {"$\sigma$ = 0.22": 0.22, "$\sigma$ = 0.23": 0.23}
+        return {"Isotropic $(\sigma = 0.26)$": 0.26, "Isotropic $(\sigma = 0.34)$": 0.34}
     elif model == "imagenet_robust":
-        return {"$\sigma$ = 0.26": 0.26, "$\sigma$ = 0.27": 0.27}
+        return {"Isotropic $(\sigma = 0.28)$": 0.28, "Isotropic $(\sigma = 0.35)$": 0.35}
 
 def load_pickle(args):
     if args.tempload:
@@ -110,7 +110,7 @@ def write_pickle(args, pkl):
             pickle.dump(pkl, f, pickle.HIGHEST_PROTOCOL)
 
 # Plots a line for a smoother defined by the sigma
-def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl):
+def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl, fmt):
     reload_list = []  # Temp workaround for quick re-loading specific lines without re-doing whole thing.
     if args.tempload and sig_name in pkl and sig_name not in reload_list:
         objectives = pkl[sig_name][0]
@@ -127,7 +127,7 @@ def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl):
         # objectives = [exp(obj) for obj in objectives]
         if args.tempsave:
             pkl[sig_name] = [objectives, accuracy]
-    plt.plot(objectives, accuracy, label=sig_name)
+    plt.plot(objectives, accuracy, fmt, label=sig_name)
 
 def main():
     parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
@@ -135,8 +135,8 @@ def main():
     parser.add_argument('--model', type=str)
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--objective', type=str, default="certified_area")
-    parser.add_argument('--tempsave', action='store_true', default=False)  # Will save plots to quick re-load
-    parser.add_argument('--tempload', action='store_true', default=False)  # Will re-load any unchanged plots
+    parser.add_argument('--tempsave', action='store_true', default=True)  # Will save plots to quick re-load
+    parser.add_argument('--tempload', action='store_true', default=True)  # Will re-load any unchanged plots
     parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
     # parser.add_argument('--temp_pickle', type=str, default="figures/tempdata_robust.pkl")  # Pickle file to save plot data
     # parser.add_argument('--indep-vars', action='store_true', default=False,
@@ -146,16 +146,16 @@ def main():
     # parser.add_argument("--lmbd", type=float, default=100000000000, help="tradeoff between accuracy and robust objective")
     # parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
 
-    parser.add_argument("--batch-smooth", type=int, default=64, help="batch size")
+    parser.add_argument("--batch-smooth", type=int, default=50, help="batch size")
     parser.add_argument("--N0", type=int, default=100) # 100
     parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
     parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
     parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
     # This sigma is also used as the minimum sigma in the min sigma objective
     # parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
-    parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                         help='Not important for this, ignore')
-    parser.add_argument('--test-batch-size', type=int, default=128, metavar='N', # 1000
+    parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
                         help='Not important for this, ignore')
     # parser.add_argument('--epochs', type=int, default=20, metavar='N',
     #                     help='number of epochs to train (default: 14)')
@@ -187,35 +187,50 @@ def main():
     # sigma_vals = {}
 
     pkl = load_pickle(args)
+    translate_dict = {  # Quick workaround. Dict for translating data from labels
+                    #   '$Isotropic (\sigma = 0.8)$': 'Isotropic $(\sigma = 0.8)$',
+                    #   '$Isotropic (\sigma = 1.2)$': 'Isotropic $(\sigma = 1.2)$',
+                    #   "$Non-isotropic (\sigma = 0.8)$": "Nonisotropic $(\sigma = 0.8)$",
+                    #   "$Non-isotropic (\sigma = 1.2)$": "Nonisotropic $(\sigma = 1.2)$",
+                    #   '$\sigma$ = 0.6': 'Isotropic $(\sigma = 0.6)$',
+                    #   '$\sigma$ = 1.4': 'Isotropic $(\sigma = 1.4)$',
+                    #   "$\sigma_v = 0.7$": "Nonisotropic $(\sigma = 0.7)$",
+                    #   "$\sigma_v = 1.5$": "Nonisotropic $(\sigma = 1.5)$",
+                    }  
+    old_pkl = pkl.copy()
+    for sig_name in old_pkl:
+        if sig_name in translate_dict:
+            pkl[translate_dict[sig_name]] = pkl[sig_name]
+    vec_fmts = ['-r', '-m']
+    val_fmts = ['--b', '--c']
     with torch.no_grad():
+        i = 0
         for sig_name, sigma in sigma_vects.items():
             print("Plotting " + sig_name)
-            plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl)
+            plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl, vec_fmts[i])
+            i += 1
             print("Plotted " + sig_name)
+        i = 0
         for sig_name, sigma in sigma_vals.items():
             print("Plotting " + sig_name)
-            plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl)
+            plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl, val_fmts[i])
+            i += 1
             print("Plotted " + sig_name)
     write_pickle(args, pkl)
 
-    # plt.style.use('seaborn-darkgrid')
-    plt.xlim(-4000, 1000)
     plt.grid()
-    plt.ylabel("Certified Accuracy")
-    plt.legend()
-    # Plot Title
-    # if args.model == "mnist":
-    #     plt.title("MNIST")
-    # elif args.model == "cifar10":
-    #     plt.title("CIFAR10")
-    # elif args.model == "cifar10_robust":
-    #     plt.title("CIFAR10 Robust")
-    # Plot X axis
-    if args.objective == "certified_area":
-        plt.xlabel("Certified Area")
-        # plt.xlabel("Certified Area (Log)")
-    elif args.objective == "largest_delta_norm":
-        plt.xlabel("Maximum Pertubation")
+    plt.ylabel("Certified Accuracy", fontsize=15)
+    plt.yticks(fontsize=12)
+    plt.xlabel('Certified Area', fontsize=15)
+    plt.xticks(fontsize=12)
+    plt.legend(fontsize=12)
+    if args.model == "mnist":
+        plt.xlim(-4000, 1000)
+        plt.ylim(0, 1)
+    elif args.model == "fashion_mnist":
+        plt.xlim(-4000, 1000)
+        plt.ylim(0, 0.85)
+    
 
     plt.savefig('figures/cert_acc_' + args.objective + '_' + args.model + '.png')
 

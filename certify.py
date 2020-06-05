@@ -253,17 +253,17 @@ def main():
                         help='learning rate (default: 1.0)')
     parser.add_argument('--gamma', type=float, default=0.5, metavar='M',
                         help='Learning rate step gamma (default: 0.7)')
-    parser.add_argument('--batch-size', type=int, default=1, metavar='N',  # TODO: combine batch sizes, should be same basically
+    parser.add_argument('--batch-size', type=int, default=16, metavar='N',  # TODO: combine batch sizes, should be same basically
                         help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=1, metavar='N', # 1000
+    parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
                         help='input batch size for testing (default: 1000)')
-    parser.add_argument("--sigma", type=float, default=0.55, help="failure probability")
+    parser.add_argument("--sigma", type=float, default=0.05, help="failure probability")
     parser.add_argument("--sigma_add", type=float, default=0.1, help="if sigma_mod, amount to add to sigma")
     parser.add_argument('--epochs', type=int, default=50, metavar='N',
                         help='number of epochs to train (default: 14)')
     parser.add_argument('--sub_epochs', type=int, default=2, metavar='N',
                         help='number of epochs to do for every sigma, if sigma mod')
-    parser.add_argument('--comment_add', type=str, default="_R4")
+    parser.add_argument('--comment_add', type=str, default="_R7")
     parser.add_argument('--sigma_mod', action='store_true', default=True,
                         help='Modulate sigma and re-optimize to create plot')
     parser.add_argument('--save-sigma', action='store_true', default=True,

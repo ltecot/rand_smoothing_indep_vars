@@ -89,13 +89,13 @@ def get_sigma_vals(model):
     elif model == "fashion_mnist":
         return {"Isotropic $(\sigma = 0.6)$": 0.6, "Isotropic $(\sigma = 1.4)$": 1.4}
     elif model == "cifar10":
-        return {"Isotropic $(\sigma = 0.17)$": 0.17, "Isotropic $(\sigma = 0.20)$": 0.2}
+        return {"Isotropic $(\sigma = 0.17)$": 0.17, "Isotropic $(\sigma = 0.23)$": 0.23}
     elif model == "cifar10_robust":
-        return {"Isotropic $(\sigma = 0.20)$": 0.2, "Isotropic $(\sigma = 0.33)$": 0.33}
+        return {"Isotropic $(\sigma = 0.22)$": 0.22, "Isotropic $(\sigma = 0.35)$": 0.35}
     elif model == "imagenet":
-        return {"Isotropic $(\sigma = 0.26)$": 0.26, "Isotropic $(\sigma = 0.34)$": 0.34}
+        return {"Isotropic $(\sigma = 0.26)$": 0.26, "Isotropic $(\sigma = 0.36)$": 0.36}
     elif model == "imagenet_robust":
-        return {"Isotropic $(\sigma = 0.28)$": 0.28, "Isotropic $(\sigma = 0.35)$": 0.35}
+        return {"Isotropic $(\sigma = 0.28)$": 0.28, "Isotropic $(\sigma = 0.37)$": 0.37}
 
 def load_pickle(args):
     if args.tempload:
@@ -146,7 +146,7 @@ def main():
     # parser.add_argument("--lmbd", type=float, default=100000000000, help="tradeoff between accuracy and robust objective")
     # parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
 
-    parser.add_argument("--batch-smooth", type=int, default=50, help="batch size")
+    parser.add_argument("--batch-smooth", type=int, default=100, help="batch size")
     parser.add_argument("--N0", type=int, default=100) # 100
     parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
     parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
@@ -230,6 +230,18 @@ def main():
     elif args.model == "fashion_mnist":
         plt.xlim(-4000, 1000)
         plt.ylim(0, 0.85)
+    elif args.model == "cifar10":
+        plt.xlim(-23000, 0)
+        plt.ylim(0, 0.9)
+    elif args.model == "cifar10_robust":
+        plt.xlim(-15000, 0)
+        plt.ylim(0, 0.7)
+    elif args.model == "imagenet":
+        plt.xlim(-500000, 0)
+        plt.ylim(0, 0.85)
+    elif args.model == "imagenet_robust":
+        plt.xlim(-500000, 0)
+        plt.ylim(0, 0.7)
     
 
     plt.savefig('figures/cert_acc_' + args.objective + '_' + args.model + '.png')

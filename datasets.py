@@ -1,4 +1,5 @@
-# Copied from https://github.com/Hadisalman/smoothing-adversarial/blob/master/code/datasets.py
+# Original from https://github.com/Hadisalman/smoothing-adversarial/blob/master/code/datasets.py
+# Modified to include Fashion-MNIST and work with our specific Imagenet setup instead.
 
 import bisect 
 import os
@@ -11,14 +12,11 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, datasets
 from torchvision.datasets.utils import check_integrity
 from typing import *
-# from zipdata import ZipData
-
 
 # set this environment variable to the location of your imagenet directory if you want to read ImageNet data.
 # make sure your val directory is preprocessed to look like the train directory, e.g. by running this script
 # https://raw.githubusercontent.com/soumith/imagenetloader.torch/master/valprep.sh
 IMAGENET_LOC_ENV = "IMAGENET_DIR"
-# IMAGENET_ON_PHILLY_DIR = "/hdfs/public/imagenet/2012/"
 
 # list of all datasets
 DATASETS = ["imagenet", "imagenet32", "cifar10"]
@@ -109,28 +107,6 @@ def _cifar10(split: str) -> Dataset:
 
     else:
         raise Exception("Unknown split name.")
-
-# def _imagenet_on_philly(split: str) -> Dataset:
-        
-#         trainpath = os.path.join(IMAGENET_ON_PHILLY_DIR, 'train.zip')
-#         train_map = os.path.join(IMAGENET_ON_PHILLY_DIR, 'train_map.txt')
-#         valpath = os.path.join(IMAGENET_ON_PHILLY_DIR, 'val.zip')
-#         val_map = os.path.join(IMAGENET_ON_PHILLY_DIR, 'val_map.txt')
-
-#         if split == "train":
-#             return ZipData(trainpath, train_map,
-#                             transforms.Compose([
-#                             transforms.RandomResizedCrop(224),
-#                             transforms.RandomHorizontalFlip(),
-#                             transforms.ToTensor(),
-#                             ]))
-#         elif split == "test":
-#             return ZipData(valpath, val_map, 
-#                             transforms.Compose([
-#                             transforms.Resize(256),
-#                             transforms.CenterCrop(224),
-#                             transforms.ToTensor(),
-#                             ]))
 
 def _imagenet(split: str) -> Dataset:
     if not IMAGENET_LOC_ENV in os.environ:

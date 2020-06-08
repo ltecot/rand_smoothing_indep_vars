@@ -1,4 +1,5 @@
-# Original copied from https://github.com/pytorch/examples/blob/master/mnist/main.py
+# Original from https://github.com/pytorch/examples/blob/master/mnist/main.py
+# Trains our MNIST and Fashion-MNIST models.
 
 from __future__ import print_function
 import argparse
@@ -32,9 +33,6 @@ class Net(nn.Module):
         x = self.dropout2(x)
         x = self.fc2(x)
         return x
-        # output = F.log_softmax(x, dim=1)
-        # return output
-
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -42,7 +40,6 @@ def train(args, model, device, train_loader, optimizer, epoch):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        # loss = F.nll_loss(output, target)
         loss = F.cross_entropy(output, target)
         loss.backward()
         optimizer.step()

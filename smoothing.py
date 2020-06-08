@@ -1,4 +1,5 @@
 # Original file from https://github.com/locuslab/smoothing/blob/master/code/core.py
+# Modified to perform non-isotropic randomized smoothing.
 
 import torch
 import torch.nn as nn
@@ -9,7 +10,6 @@ import numpy as np
 from math import ceil
 from statsmodels.stats.proportion import proportion_confint
 
-# Class copied directly from original paper repo, modified for sigma optimization
 class Smooth(object):
     """A smoothed classifier g """
 
@@ -60,11 +60,6 @@ class Smooth(object):
         if pABar < 0.5:
             return Smooth.ABSTAIN, 0.0
         else:
-            # if self.indep_vars:
-            #     radius = torch.norm(self.sigma, p=2) * norm.ppf(pABar)
-            # else:
-            #     radius = self.sigma * norm.ppf(pABar)
-            # return cAHat, pABar, radius
             return cAHat, norm.ppf(pABar)
 
     # TODO: Update docs
@@ -84,12 +79,6 @@ class Smooth(object):
         """
         self.base_classifier.eval()
         counts_estimation, true_class_softmax_sum, summed_outputs = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label)
-        # if self.indep_vars:
-        #     radius = torch.norm(self.sigma, p=2).cuda() * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps)).cuda()
-        # else:
-        #     radius = self.sigma * self.unit_norm.icdf(torch.clamp(counts_estimation / n, self.eps, 1-self.eps))
-        # return cAHat, radius
-        # print(true_class_softmax_sum)
         cAHat = counts_estimation.argmax().item()
         pA = true_class_softmax_sum / n
         if pA < 0.5:
@@ -127,12 +116,6 @@ class Smooth(object):
         :param batch_size:
         :return: an ndarray[int] of length num_classes containing the per-class counts
         """
-        # with torch.no_grad():
-        # if not training:
-        #     counts = np.zeros(self.num_classes, dtype=int)
-        # else:
-        #     true_class_softmax_sum = torch.tensor(0.0).cuda()
-        #     counts = torch.zeros(self.num_classes).cuda()
         counts = np.zeros(self.num_classes, dtype=int)
         if training:
             true_class_softmax_sum = torch.tensor(0.0).cuda()
@@ -145,12 +128,6 @@ class Smooth(object):
             noise = self.sigma * torch.randn_like(batch)
             output = self.base_classifier(batch + noise)
             predictions = output.argmax(1)
-            # if not training:
-            #     counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)
-            # else:
-            #     softmax_out = F.softmax(output, dim=1)
-            #     # counts += torch.sum(softmax_out[:, truth_label])
-            #     counts += torch.sum(softmax_out[:, truth_label])
             counts += self._count_arr(predictions.cpu().numpy(), self.num_classes)
             if training:
                 softmax_out = F.softmax(output, dim=1)

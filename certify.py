@@ -1,4 +1,4 @@
-# Test to maximize the "certification radius" of both smoothing methods.
+# Training procedure to maximize the certified area of non-isotropic randomized smoothing models.
 # Similar to mnist_train but modified to optimize sigmas instead.
 
 from __future__ import print_function
@@ -22,8 +22,6 @@ from torch.utils.tensorboard import SummaryWriter
 # Slope of hinge loss to enforce min sigma objective.
 MIN_SIGMA_HINGE_SLOPE = 10000000000
 
-# GLOBAL_LMBD = args.lmbd  # So it can be varied by the plotting procedure
-
 def load_dataset(args, use_cuda):
     if args.dataset == "mnist":
         kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
@@ -39,8 +37,7 @@ def load_dataset(args, use_cuda):
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
                         ])),
-            batch_size=args.test_batch_size, shuffle=True, **kwargs)  # Smoothing only can handle one at a time anyways right now
-            # batch_size=args.test_batch_size, shuffle=True, **kwargs)
+            batch_size=args.test_batch_size, shuffle=True, **kwargs)
     elif args.dataset == "fashion_mnist":
         kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
         train_loader = torch.utils.data.DataLoader(
@@ -55,13 +52,11 @@ def load_dataset(args, use_cuda):
                             transforms.ToTensor(),
                             transforms.Normalize((0.1307,), (0.3081,))
                         ])),
-            batch_size=args.test_batch_size, shuffle=True, **kwargs)  # Smoothing only can handle one at a time anyways right now
-            # batch_size=args.test_batch_size, shuffle=True, **kwargs)
+            batch_size=args.test_batch_size, shuffle=True, **kwargs) 
     elif args.dataset == "cifar10":
         kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
         train_loader = torch.utils.data.DataLoader(get_dataset("cifar10", "train"), batch_size=args.batch_size, shuffle=True, **kwargs)
         test_loader = torch.utils.data.DataLoader(get_dataset("cifar10", "test"), batch_size=args.test_batch_size, shuffle=True, **kwargs)
-    # elif args.dataset == "imagenet": # Needs some extra file stuff before this will work
     elif args.dataset == "imagenet":
         kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
         train_set, test_set = imagenet_trainset()
@@ -100,16 +95,11 @@ def load_model(model_name, device):
 
 # Calculate proper objective we are trying to maximize
 def calculate_objective(indep_vars, objective, sigma, icdf_pabar):
-    # if torch.sum(sigma <= 0):
-    #     print(sigma)
-    #     print(icdf_pabar)
     if not indep_vars:
         objective = sigma * icdf_pabar  # Just do certified radius
     else:
         if objective == "largest_delta_norm":
             objective = torch.norm(sigma, p=2) * icdf_pabar
-        # elif objective == "minimum_sigma_largest_delta_norm":
-        #     objective = torch.norm(sigma, p=2) * icdf_pabar + MIN_SIGMA_HINGE_SLOPE * torch.sum(torch.min(sigma - args.sigma, torch.tensor([0.]).cuda()))
         elif objective == "certified_area":
             sigma = torch.abs(sigma)  # For log calculation. Negative or positive makes no difference in our formulation.
             eps = 0.000000001 # To prevent log from returning infinity.
@@ -117,21 +107,12 @@ def calculate_objective(indep_vars, objective, sigma, icdf_pabar):
                 icdf_pabar = torch.tensor(icdf_pabar)
             elif not torch.is_tensor(icdf_pabar):
                 icdf_pabar = torch.tensor(icdf_pabar.item())
-            # print(torch.sum(sigma+eps <= 0))
-            # print(torch.numel(sigma))
-            # print(icdf_pabar)
             objective = torch.sum(torch.log(sigma+eps)) + torch.numel(sigma) * torch.log(icdf_pabar+eps)  # sum of log of simgas + d * log of inverse CDF of paBar
         else:
             raise Exception("Must enter a valid objective")
-    # print(objective)
     return objective
 
-# def calculate_loss(objective_value, ce_loss, lambda_param):
-#     # lambda_param * F.cross_entropy(model_output, true_class) + objective_value
-#     lambda_param * F.cross_entropy(model_output, true_class) + objective_value
-
 def train(args, model, smoothed_classifier, device, train_loader, optimizer, epoch, lmbd, writer):
-    # model.train()
     avg_ce_loss = torch.tensor([0.0]).cuda()
     avg_objective = torch.tensor([0.0]).cuda()
     avg_accuracy = 0
@@ -141,14 +122,8 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         ce_loss = torch.tensor([0.0]).cuda()
         objective = torch.tensor([0.0]).cuda()
         accuracy = 0
-        # avg_icdf = 0
-        # print(ce_loss)
-        # print(objective)
         for i in range(data.shape[0]):
             prediction, icdf_pabar, smoothed_output = smoothed_classifier.certify_training(data[i], args.N0, args.N_train, args.alpha, args.batch_smooth, target[i])
-            # print(icdf_pabar)
-            # print(smoothed_output.unsqueeze(0).shape)
-            # print(target[i:i+1].shape)
             ce_loss += F.cross_entropy(smoothed_output.unsqueeze(0), target[i:i+1])
             if prediction == target[i]:  # Add 0 to all if it predicts wrong.
                 accuracy += 1
@@ -157,19 +132,12 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
         avg_objective += objective
         avg_accuracy += accuracy
         ce_loss /= data.shape[0]
-        # objective /= data.shape[0]
-        # print(objective)
         if accuracy != 0:
             objective /= accuracy  # Want to average objectives that are actually certified
         accuracy /= data.shape[0]
         loss = lmbd * ce_loss - objective
         loss.backward()
         optimizer.step()
-        # # Doesn't actually make a difference in our version, with exception of area calculation.
-        # smoothed_classifier.sigma = torch.abs(smoothed_classifier.sigma)  # Enforces positive-only sigma
-        
-        # print(ce_loss)
-        # print(objective)
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tCE_Loss: {:.6f}\tObjective: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -186,39 +154,26 @@ def train(args, model, smoothed_classifier, device, train_loader, optimizer, epo
     writer.add_scalar('objective/train', avg_objective, epoch-1)
     writer.add_scalar('accuracy/train', avg_accuracy, epoch-1)
 
-# TODO: Record and report test accuracy of the smoothed model too.
 def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, writer, comment):
-    # model.eval()
-    # test_loss = 0
     objective = 0
     accuracy = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-            # print(data.shape)
-            # print(target.shape)
             for i in range(data.shape[0]):
                 prediction, icdf_pabar = smoothed_classifier.certify(data[i], args.N0, args.N, args.alpha, args.batch_smooth)
-                # test_loss += radius
                 if prediction == target[i]:  # Add 0 to all if it predicts wrong.
                     accuracy += 1
                     objective += calculate_objective(args.indep_vars, args.objective, smoothed_classifier.sigma, icdf_pabar)
-        # test_loss /= len(test_loader.dataset)
-        # objective /= len(test_loader.dataset)
         objective /= accuracy  # Want to average objectives that are actually certified
         accuracy /= len(test_loader.dataset)
         print('\nAverage Test objective: {:.4f}'.format(objective))
         print('Percent correct: {:.4f}'.format(accuracy))
         print('Sigma avg: {:.4f}\n'.format(torch.abs(smoothed_classifier.sigma).mean()))
-        # print('Sigma:')
-        # print(smoothed_classifier.sigma)
-        # plt.imshow(smoothed_classifier.sigma[0].cpu().numpy())
-        # save_image(data[0], 'gen_files/sigma_viz.png')
         writer.add_scalar('objective/test', objective, epoch-1)
         writer.add_scalar('accuracy/test', accuracy, epoch-1)
         writer.add_scalar('sigma/mean', torch.abs(smoothed_classifier.sigma).mean(), epoch-1)
         writer.add_scalar('sigma/stddev', torch.abs(smoothed_classifier.sigma).std(), epoch-1)
-        # writer.add_scalar('Percent_Correct', perc_correct, epoch-1)
         if args.indep_vars:
             # Linear Scaled Image
             sigma_img = torch.abs(smoothed_classifier.sigma)  # For image. Negative or positive makes no difference in our formulation.
@@ -231,15 +186,10 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
             sigma_gaus_img = ((sigma_gaus_img * 0.25) + 0.5)  # Assuming normal dist, will put %95 of values in [0,1] range
             sigma_gaus_img = torch.clamp(sigma_gaus_img, 0, 1)  # Clips out of range values
             writer.add_image('sigma_gaussian_normalized', sigma_gaus_img, epoch-1)
-            # save_image(sigma_img[0], 'gen_files/sigma_viz.png')
-            # writer.add_image('Sigma', (data[0] - data[0].min()) / (data[0] - data[0].min()).max(), epoch-1)
-        # print(smoothed_classifier.sigma)
         if args.save_sigma:
             torch.save(smoothed_classifier.sigma, 'models/sigmas/sigma' + comment + '_EPOCH_' + str(epoch) + '.pt')
-        if args.tradeoff_plot:  # Keep in mind this will transform the x-axis into ints, so this should not be used for the paper plots.
+        if args.tradeoff_plot: 
             writer.add_scalar('tradeoff_plot/lambda', lmbd, epoch-1)
-            # writer.add_scalar('tradeoff_plot/acc_obj', accuracy, objective)
-            # writer.add_scalar('tradeoff_plot/acc_sigma_mean', accuracy, smoothed_classifier.sigma.mean())
             lmbd /= args.lmbd_div
     return lmbd
 
@@ -288,19 +238,15 @@ def main():
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
-    # parser.add_argument('--gpu', type=int, default=0,
-    #                     help='The gpu number you are running on.')
 
     args = parser.parse_args()
 
     comment = '_MODEL_' + args.model + '_OBJECTIVE_' + args.objective + '_LR_' + str(args.lr) + '_GAMMA_' + str(args.gamma)
-    # comment = '_MULTIPLE_SIGMA' if args.indep_vars else comment + '_SINGLE_SIGMA'
     if args.tradeoff_plot:
         comment = comment + '_TRADEOFF_PLOT'
     elif args.sigma_mod:
         comment = comment + '_SIGMA_MOD'
     comment = comment + args.comment_add
-    # comment = "Testing"
 
     torch.manual_seed(args.seed)
     use_cuda = not args.no_cuda and torch.cuda.is_available()

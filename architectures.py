@@ -1,4 +1,4 @@
-# File copied from https://github.com/Hadisalman/smoothing-adversarial/blob/cff781d53ed5fa7df6ba567d3b51df202b6ec14e/code/architectures.py
+# Original file copied from https://github.com/Hadisalman/smoothing-adversarial/blob/cff781d53ed5fa7df6ba567d3b51df202b6ec14e/code/architectures.py
 
 from cifar_resnet import resnet as resnet_cifar
 from datasets import get_normalize_layer, get_input_center_layer

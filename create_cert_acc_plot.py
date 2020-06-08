@@ -18,9 +18,6 @@ from torch.optim.lr_scheduler import StepLR
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-# from torch.utils.tensorboard import SummaryWriter
-
-# from math import exp
 
 # Return the objective value for each data point in the test set.
 def calculate_test_set_objective(args, model, smoothed_classifier, device, test_loader):
@@ -38,17 +35,6 @@ def calculate_test_set_objective(args, model, smoothed_classifier, device, test_
                     objectives.append(calculate_objective(True, args.objective, smoothed_classifier.sigma, icdf_pabar).item())
     return sorted(objectives)
 
-# def get_models(dataset, device):
-#     if dataset == "cifar10":
-#         model_reg = load_model("cifar10", device)
-#         model_robust = load_model("cifar10_robust", device)
-#         return {"Regular Model": model_reg, "Robust Model": model_robust}
-#         # return [model_reg, model_robust]
-#     # elif dataset == "imagenet":
-#     #     pass
-#     else:
-#         raise Exception("Must enter a valid dataset name")
-
 # Load sigma vectors for when models with a lambda are trained. Placeholder for now.
 def get_sigma_vects(model, dataset):
     # Load sigmas
@@ -64,23 +50,18 @@ def get_sigma_vects(model, dataset):
         path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_3.pt'
         path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_5.pt'
         return {"Nonisotropic $(\sigma = 0.2)$": torch.load(path1), "Nonisotropic $(\sigma = 0.3)$": torch.load(path2)}
-        # return {"$\lambda = 10^{-12}$": torch.load(path1)}
     elif model == "cifar10_robust":  # R6 - 5 and 7
         path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_5.pt'
         path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
         return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
-        # return {"$\lambda = 10^{-20}$": torch.load(path1)}
     elif model == "imagenet":  # R6 - 4 and 7?
         path1 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_4.pt'
         path2 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
         return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
-        # return {"$\lambda = 10^{-26}$": torch.load(path1)}
     elif model == "imagenet_robust":  # R6 - 5? and 7 
-        # path1 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_MULTIPLE_SIGMA_TRADEOFF_PLOT_LAMBDA_1e-18.pt'
         path1 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_5.pt'
         path2 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
         return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
-        # return {"$\lambda = 10^{-18}$": torch.load(path1)}
 
 # Load sigma values for original method testing.
 def get_sigma_vals(model):
@@ -119,12 +100,9 @@ def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl, fmt)
         smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=sigma, indep_vars=True, data_shape=get_input_dim(args.dataset))
         objectives = calculate_test_set_objective(args, model, smoother, device, test_loader)
         accuracy = np.linspace(1.0, 0.0, num=len(objectives))
-        # print(objectives)
-        # print(accuracy)
         while objectives[0] == float("-inf"):
             objectives = objectives[1:]
             accuracy = accuracy[1:]
-        # objectives = [exp(obj) for obj in objectives]
         if args.tempsave:
             pkl[sig_name] = [objectives, accuracy]
     plt.plot(objectives, accuracy, fmt, label=sig_name)
@@ -138,41 +116,20 @@ def main():
     parser.add_argument('--tempsave', action='store_true', default=True)  # Will save plots to quick re-load
     parser.add_argument('--tempload', action='store_true', default=True)  # Will re-load any unchanged plots
     parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
-    # parser.add_argument('--temp_pickle', type=str, default="figures/tempdata_robust.pkl")  # Pickle file to save plot data
-    # parser.add_argument('--indep-vars', action='store_true', default=False,
-    #                     help='to use indep vars or not')
-    # parser.add_argument('--create-tradeoff-plot', action='store_true', default=False,
-    #                     help='forgo optimization and produce plot where lambda is automatically varied')
-    # parser.add_argument("--lmbd", type=float, default=100000000000, help="tradeoff between accuracy and robust objective")
-    # parser.add_argument("--lmbd-div", type=float, default=100, help="divider of lambda used when creating tradeoff plots")
 
     parser.add_argument("--batch-smooth", type=int, default=100, help="batch size")
     parser.add_argument("--N0", type=int, default=100) # 100
     parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
     parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
     parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
-    # This sigma is also used as the minimum sigma in the min sigma objective
-    # parser.add_argument("--sigma", type=float, default=0.5, help="failure probability")
     parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                         help='Not important for this, ignore')
     parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
                         help='Not important for this, ignore')
-    # parser.add_argument('--epochs', type=int, default=20, metavar='N',
-    #                     help='number of epochs to train (default: 14)')
-    # parser.add_argument('--lr', type=float, default=2.0, metavar='LR',
-    #                     help='learning rate (default: 1.0)')
-    # parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
-    #                     help='Learning rate step gamma (default: 0.7)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1, metavar='S',
                         help='random seed (default: 1)')
-    # parser.add_argument('--log-interval', type=int, default=10, metavar='N',
-    #                     help='how many batches to wait before logging training status')
-    # parser.add_argument('--save-sigma', action='store_true', default=False,
-    #                     help='Save the sigma vector')
-    # parser.add_argument('--gpu', type=int, default=0,
-    #                     help='The gpu number you are running on.')
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -184,19 +141,9 @@ def main():
     model.eval()
     sigma_vects = get_sigma_vects(args.model, args.dataset)
     sigma_vals = get_sigma_vals(args.model)
-    # sigma_vals = {}
 
     pkl = load_pickle(args)
-    translate_dict = {  # Quick workaround. Dict for translating data from labels
-                    #   '$Isotropic (\sigma = 0.8)$': 'Isotropic $(\sigma = 0.8)$',
-                    #   '$Isotropic (\sigma = 1.2)$': 'Isotropic $(\sigma = 1.2)$',
-                    #   "$Non-isotropic (\sigma = 0.8)$": "Nonisotropic $(\sigma = 0.8)$",
-                    #   "$Non-isotropic (\sigma = 1.2)$": "Nonisotropic $(\sigma = 1.2)$",
-                    #   '$\sigma$ = 0.6': 'Isotropic $(\sigma = 0.6)$',
-                    #   '$\sigma$ = 1.4': 'Isotropic $(\sigma = 1.4)$',
-                    #   "$\sigma_v = 0.7$": "Nonisotropic $(\sigma = 0.7)$",
-                    #   "$\sigma_v = 1.5$": "Nonisotropic $(\sigma = 1.5)$",
-                    }  
+    translate_dict = {}  # Quick workaround. Dict for translating data from labels
     old_pkl = pkl.copy()
     for sig_name in old_pkl:
         if sig_name in translate_dict:
@@ -242,7 +189,6 @@ def main():
     elif args.model == "imagenet_robust":
         plt.xlim(-500000, 0)
         plt.ylim(0, 0.7)
-    
 
     plt.savefig('figures/cert_acc_' + args.objective + '_' + args.model + '.png')
 

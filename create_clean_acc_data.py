@@ -1,13 +1,9 @@
-# Does runs on original random smoothing to produce a plot for clean acc vs. cert area by varying the sigma.
-
-from __future__ import print_function
-
-from certify import load_dataset, load_model, calculate_objective
+from certify import load_dataset, load_model, calculate_objective, get_dataset_name
 from mnist_train import Net
 from smoothing import Smooth
-from datasets import get_dataset, imagenet_trainset, get_input_dim, get_num_classes
-from architectures import get_architecture
+from datasets import get_input_dim, get_num_classes
 
+from __future__ import print_function
 import argparse
 import torch
 import torch.nn as nn
@@ -19,7 +15,7 @@ from torch.optim.lr_scheduler import StepLR
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
-def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, writer, comment, sigma):
+def test(args, smoothed_classifier, device, test_loader, epoch, writer):
     model.eval()
     area_objective = 0
     norm_objective = 0
@@ -42,52 +38,53 @@ def test(args, model, smoothed_classifier, device, test_loader, epoch, lmbd, wri
         writer.add_scalar('orig_rand_smooth_plot/area_objective', area_objective, epoch-1)
         writer.add_scalar('orig_rand_smooth_plot/norm_objective', norm_objective, epoch-1)
         writer.add_scalar('orig_rand_smooth_plot/accuracy', accuracy, epoch-1)
-        writer.add_scalar('orig_rand_smooth_plot/sigma', sigma, epoch-1)
-    return lmbd
 
 def main():
-
-    parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
-
-    parser.add_argument('--model', type=str)
-    parser.add_argument('--dataset', type=str)  # TODO: Refactor out. Always determined by model anyways.
-    parser.add_argument("--sigma", type=float, default=2, help="tradeoff between accuracy and robust objective")
-    parser.add_argument("--sigma_sub", type=float, default=0.1, help="divider of lambda used when creating tradeoff plots")
-    parser.add_argument('--batch-size', type=int, default=128, metavar='N',  # TODO: combine batch sizes, should be same basically
-                        help='input batch size for training (default: 64)')
-    parser.add_argument('--test-batch-size', type=int, default=128, metavar='N', # 1000
-                        help='input batch size for testing (default: 1000)')
-
-    parser.add_argument("--batch-smooth", type=int, default=100, help="batch size")
-    parser.add_argument("--N0", type=int, default=100) # 100
-    parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
-    parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
-    parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
-    parser.add_argument('--epochs', type=int, default=21, metavar='N',
-                        help='number of epochs to train (default: 14)')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
+    parser = argparse.ArgumentParser(description='get clean accuracy vs certified area plots for original randomized smoothing')
+    parser.add_argument('--model', type=str,
+                        help='filepath to saved model parameters')
+    parser.add_argument("--sigma", type=float, default=0.05, 
+                        help="constant elements in sigma vector are initialized to")
+    parser.add_argument("--sigma_add", type=float, default=0.05, 
+                        help="amount to add to sigma per epoch")
+    parser.add_argument('--epochs', type=int, default=50,
+                        help='number of epochs to train')
+    parser.add_argument('--batch_size', type=int, default=16,
+                        help='input batch size for training')
+    parser.add_argument('--test_batch_size', type=int, default=16,
+                        help='input batch size for testing')
+    parser.add_argument("--batch_smooth", type=int, default=64, 
+                        help="batch size for smoothed classifer when sampling random noise")
+    parser.add_argument("--N0", type=int, default=64,
+                        help='number of samples used in when estimating smoothed classifer prediction')
+    parser.add_argument("--N", type=int, default=512, 
+                        help="number of samples used when estimating paBar")
+    parser.add_argument("--N_train", type=int, default=64, 
+                        help="number of samples to use in training when the smoothed classifer samples noise")
+    parser.add_argument("--alpha", type=float, default=0.001, 
+                        help="probability that paBar is not a true lower bound on pA")
+    parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='disables CUDA training')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
-                        help='random seed (default: 1)')
-
+    parser.add_argument('--seed', type=int, default=1,
+                        help='random seed')
     args = parser.parse_args()
 
     comment = '_ORIG_RANDSMOOTH_PLOT_MODEL_' + args.model
-
     writer = SummaryWriter(comment=comment)
-
     torch.manual_seed(args.seed)
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-
-    train_loader, test_loader = load_dataset(args, use_cuda)    
+    train_loader, test_loader = load_dataset(get_dataset_name(args.model), args.batch_size, args.test_batch_size, use_cuda)   
     model = load_model(args.model, device)
 
     sigma = args.sigma
     for epoch in range(1, args.epochs + 1):
-        smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=sigma, indep_vars=True, data_shape=get_input_dim(args.dataset))
-        test(args, model, smoother, device, test_loader, epoch, 0, writer, comment, sigma)
-        sigma = sigma - args.sigma_sub
+        smoother = Smooth(model, sigma=sigma, 
+                          num_classes=get_num_classes(get_dataset_name(args.model)), 
+                          data_shape=get_input_dim(get_dataset_name(args.model)))
+        writer.add_scalar('orig_rand_smooth_plot/sigma', sigma, epoch-1)
+        test(args, smoother, device, test_loader, epoch, writer)
+        sigma = sigma + args.sigma_add
 
     writer.close()
 

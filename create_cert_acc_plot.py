@@ -1,10 +1,11 @@
-
 from certify import load_dataset, load_model, calculate_objective, get_dataset_name
-from mnist_train import Net
 from smoothing import Smooth
 from datasets import get_input_dim, get_num_classes
 
 import argparse
+import matplotlib.pyplot as plt
+import numpy as np
+import pickle
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,9 +13,6 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from torch.optim.lr_scheduler import StepLR
-import matplotlib.pyplot as plt
-import numpy as np
-import pickle
 
 # CUSTOM: Add an option for your model or change for existing model.
 def get_sigma_vects(model):
@@ -80,7 +78,7 @@ def calculate_test_set_objective(args, smoothed_classifier, device, test_loader)
                 if prediction != target[i]:
                     objectives.append(float("-inf"))
                 else:
-                    objectives.append(calculate_objective(True, args.objective, smoothed_classifier.sigma, icdf_pabar).item())
+                    objectives.append(calculate_objective(smoothed_classifier.sigma, icdf_pabar).item())
     return sorted(objectives)
 
 def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl, fmt):
@@ -102,7 +100,7 @@ def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl, fmt)
     plt.plot(objectives, accuracy, fmt, label=sig_name)
 
 def main():
-    parser = argparse.ArgumentParser(description='Calculate randomized smoothing certified areas')
+    parser = argparse.ArgumentParser(description='create cert acc plots for randomize smoothing methods')
     parser.add_argument('--model', type=str,
                         help='filepath to saved model parameters')
     parser.add_argument('--tempsave', action='store_true', default=False,
@@ -111,32 +109,32 @@ def main():
                         help='reload any saved plots from pickle file')
     parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl",
                         help='pickle file to save and/or load from')
-    parser.add_argument("--batch-smooth", type=int, default=100, help="batch size")
-    parser.add_argument("--N0", type=int, default=100)
-    parser.add_argument("--N", type=int, default=1000, help="number of samples to use")
-    parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
-    parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
-    parser.add_argument('--batch-size', type=int, default=16,
-                        help='Not important for this, ignore')
-    parser.add_argument('--test-batch-size', type=int, default=16,
-                        help='Not important for this, ignore')
-    parser.add_argument('--no-cuda', action='store_true', default=False,
+    parser.add_argument("--batch_smooth", type=int, default=100, 
+                        help="batch size for smoothed classifer when sampling random noise")
+    parser.add_argument("--N0", type=int, default=100,
+                        help='number of samples used in when estimating smoothed classifer prediction')
+    parser.add_argument("--N", type=int, default=1000, 
+                        help="number of samples used when estimating paBar")
+    parser.add_argument("--N_train", type=int, default=100, 
+                        help="number of samples to use in training when the smoothed classifer samples noise")
+    parser.add_argument("--alpha", type=float, default=0.001, 
+                        help="probability that paBar is not a true lower bound on pA")
+    parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1,
-                        help='random seed (default: 1)')
+                        help='random seed')
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-
-    _, test_loader = load_dataset(args, use_cuda)    
+    _, test_loader = load_dataset(get_dataset_name(args.model), 1, 1, use_cuda)   
     model = load_model(args.model, device)
     model.eval()
-    sigma_vects = get_sigma_vects(args.model, args.dataset)
+    sigma_vects = get_sigma_vects(args.model)
     sigma_vals = get_sigma_vals(args.model)
-
     pkl = load_pickle(args)
+
     translate_dict = {}  # CUSTOM: Add key-val pairs to translate key sigma name to val sigma name
     old_pkl = pkl.copy()
     for sig_name in old_pkl:
@@ -144,6 +142,7 @@ def main():
             pkl[translate_dict[sig_name]] = pkl[sig_name]
     vec_fmts = ['-r', '-m']  # CUSTOM: Change or add format strings for non-isotropic plot lines
     val_fmts = ['--b', '--c']  # CUSTOM: Change or add format strings for isotropic plot lines
+
     with torch.no_grad():
         i = 0
         for sig_name, sigma in sigma_vects.items():

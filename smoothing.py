@@ -1,14 +1,14 @@
 # Original file from https://github.com/locuslab/smoothing/blob/master/code/core.py
 # Modified to perform non-isotropic randomized smoothing.
 
+import numpy as np
+from math import ceil
+from scipy.stats import norm, binom_test
+from statsmodels.stats.proportion import proportion_confint
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal
-from scipy.stats import norm, binom_test
-import numpy as np
-from math import ceil
-from statsmodels.stats.proportion import proportion_confint
 
 class Smooth(object):
     """A smoothed classifier g """

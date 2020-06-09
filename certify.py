@@ -1,14 +1,11 @@
-# Training procedure to maximize the certified area of non-isotropic randomized smoothing models.
-# Similar to mnist_train but modified to optimize sigmas instead.
-
-from __future__ import print_function
-
 from mnist_train import Net
 from smoothing import Smooth
 from datasets import get_dataset, imagenet_trainset, get_input_dim, get_num_classes
 from architectures import get_architecture
 
+from __future__ import print_function
 import argparse
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,7 +13,6 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from torch.optim.lr_scheduler import StepLR
-import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
 # CUSTOM: Add an option for your model
@@ -211,7 +207,7 @@ def main():
                         help="number of samples to use in training when the smoothed classifer samples noise")
     parser.add_argument("--alpha", type=float, default=0.001, 
                         help="probability that paBar is not a true lower bound on pA")
-    parser.add_argument('--no-cuda', action='store_true', default=False,
+    parser.add_argument('--no_cuda', action='store_true', default=False,
                         help='disables CUDA training')
     parser.add_argument('--seed', type=int, default=1,
                         help='random seed')
@@ -234,7 +230,9 @@ def main():
     if args.sigma_mod:
         sigma = args.sigma
         for epoch in range(1, args.epochs + 1):
-            smoother = Smooth(model, sigma=sigma, num_classes=get_num_classes(args.dataset), data_shape=get_input_dim(args.dataset))
+            smoother = Smooth(model, sigma=sigma, 
+                              num_classes=get_num_classes(get_dataset_name(args.model)), 
+                              data_shape=get_input_dim(get_dataset_name(args.model)))
             optimizer = optim.Adam([smoother.sigma], lr=args.lr)
             scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
             for sub_epoch in range(1, args.sub_epochs + 1):
@@ -245,7 +243,9 @@ def main():
                 scheduler.step() 
             sigma += args.sigma_add
     else:
-        smoother = Smooth(model, sigma=args.sigma, num_classes=get_num_classes(args.dataset), data_shape=get_input_dim(args.dataset))
+        smoother = Smooth(model, sigma=sigma, 
+                          num_classes=get_num_classes(get_dataset_name(args.model)), 
+                          data_shape=get_input_dim(get_dataset_name(args.model)))
         optimizer = optim.Adam([smoother.sigma], lr=args.lr)
         scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
         for epoch in range(1, args.epochs + 1):

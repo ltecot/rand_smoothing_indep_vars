@@ -3,7 +3,6 @@ from smoothing import Smooth
 from datasets import get_dataset, imagenet_trainset, get_input_dim, get_num_classes
 from architectures import get_architecture
 
-from __future__ import print_function
 import argparse
 import matplotlib.pyplot as plt
 import torch
@@ -126,10 +125,10 @@ def train(args, smoothed_classifier, device, train_loader, optimizer, epoch, wri
         avg_accuracy += accuracy
         if accuracy != 0:
             objective /= accuracy  # Want to average objectives that are actually certified
-        accuracy /= data.shape[0]
-        loss = -objective
-        loss.backward()
-        optimizer.step()
+            accuracy /= data.shape[0]
+            loss = -objective
+            loss.backward()
+            optimizer.step()
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tObjective: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -175,21 +174,21 @@ def main():
     parser = argparse.ArgumentParser(description='Optimize certified area')
     parser.add_argument('--model', type=str,
                         help='filepath to saved model parameters')
-    parser.add_argument('--lr', type=float, default=0.0002,
+    parser.add_argument('--lr', type=float, default=0.0001,
                         help='learning rate')
-    parser.add_argument('--gamma', type=float, default=0.5,
+    parser.add_argument('--gamma', type=float, default=0.7,
                         help='learning rate step gamma')
-    parser.add_argument('--batch_size', type=int, default=16,
+    parser.add_argument('--batch_size', type=int, default=1,
                         help='input batch size for training')
-    parser.add_argument('--test_batch_size', type=int, default=16,
+    parser.add_argument('--test_batch_size', type=int, default=1,
                         help='input batch size for testing')
-    parser.add_argument("--sigma", type=float, default=0.05, 
+    parser.add_argument("--sigma", type=float, default=0.02, 
                         help="constant elements in sigma vector are initialized to")
-    parser.add_argument("--sigma_add", type=float, default=0.1, 
+    parser.add_argument("--sigma_add", type=float, default=0.02, 
                         help="amount to add to sigma per sub-epoch if doing sigma modulation")
-    parser.add_argument('--epochs', type=int, default=50,
+    parser.add_argument('--epochs', type=int, default=200,
                         help='number of epochs to train')
-    parser.add_argument('--sub_epochs', type=int, default=2,
+    parser.add_argument('--sub_epochs', type=int, default=4,
                         help='number of epochs to optimize for per initialization if doing sigma modulation')
     parser.add_argument('--comment_add', type=str, default="",
                         help='string to add to the end of name used for tensorboard and sigma filesaves')
@@ -215,8 +214,8 @@ def main():
                         help='how many batches to wait before logging training status')
     args = parser.parse_args()
 
-    comment = '_MODEL_' + args.model + '_OBJECTIVE_' + args.objective + '_LR_' + str(args.lr) + '_GAMMA_' + str(args.gamma)
-    elif args.sigma_mod:
+    comment = '_MODEL_' + args.model + '_LR_' + str(args.lr) + '_GAMMA_' + str(args.gamma)
+    if args.sigma_mod:
         comment = comment + '_SIGMA_MOD'
     comment = comment + args.comment_add
 

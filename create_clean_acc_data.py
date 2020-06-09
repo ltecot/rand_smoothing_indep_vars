@@ -3,7 +3,6 @@ from mnist_train import Net
 from smoothing import Smooth
 from datasets import get_input_dim, get_num_classes
 
-from __future__ import print_function
 import argparse
 import torch
 import torch.nn as nn
@@ -16,9 +15,7 @@ import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
 def test(args, smoothed_classifier, device, test_loader, epoch, writer):
-    model.eval()
     area_objective = 0
-    norm_objective = 0
     accuracy = 0
     with torch.no_grad():
         for data, target in test_loader:
@@ -27,27 +24,23 @@ def test(args, smoothed_classifier, device, test_loader, epoch, writer):
                 prediction, icdf_pabar = smoothed_classifier.certify(data[i], args.N0, args.N, args.alpha, args.batch_smooth)
                 if prediction == target[i]:  # Add 0 to all if it predicts wrong.
                     accuracy += 1
-                    area_objective += calculate_objective(True, "certified_area", smoothed_classifier.sigma, icdf_pabar)
-                    norm_objective += calculate_objective(True, "largest_delta_norm", smoothed_classifier.sigma, icdf_pabar)
+                    area_objective += calculate_objective(smoothed_classifier.sigma, icdf_pabar)
         area_objective /= accuracy  # Want to average objectives that are actually certified
-        norm_objective /= accuracy
         accuracy /= len(test_loader.dataset)
         print('\nAverage Area objective: {:.4f}'.format(area_objective))
-        print('Average Norm objective: {:.4f}'.format(norm_objective))
         print('Percent correct: {:.4f}'.format(accuracy))
         writer.add_scalar('orig_rand_smooth_plot/area_objective', area_objective, epoch-1)
-        writer.add_scalar('orig_rand_smooth_plot/norm_objective', norm_objective, epoch-1)
         writer.add_scalar('orig_rand_smooth_plot/accuracy', accuracy, epoch-1)
 
 def main():
     parser = argparse.ArgumentParser(description='get clean accuracy vs certified area plots for original randomized smoothing')
     parser.add_argument('--model', type=str,
                         help='filepath to saved model parameters')
-    parser.add_argument("--sigma", type=float, default=0.05, 
+    parser.add_argument("--sigma", type=float, default=0.025, 
                         help="constant elements in sigma vector are initialized to")
-    parser.add_argument("--sigma_add", type=float, default=0.05, 
+    parser.add_argument("--sigma_add", type=float, default=0.025, 
                         help="amount to add to sigma per epoch")
-    parser.add_argument('--epochs', type=int, default=50,
+    parser.add_argument('--epochs', type=int, default=200,
                         help='number of epochs to train')
     parser.add_argument('--batch_size', type=int, default=16,
                         help='input batch size for training')
@@ -76,6 +69,7 @@ def main():
     device = torch.device("cuda" if use_cuda else "cpu")
     train_loader, test_loader = load_dataset(get_dataset_name(args.model), args.batch_size, args.test_batch_size, use_cuda)   
     model = load_model(args.model, device)
+    model.eval()
 
     sigma = args.sigma
     for epoch in range(1, args.epochs + 1):

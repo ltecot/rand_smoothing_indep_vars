@@ -71,13 +71,13 @@ class Smooth(object):
                  in the case of abstention, the class will be ABSTAIN and the radius 0.
         """
         self.base_classifier.eval()
-        counts_estimation, true_class_softmax_sum, summed_outputs = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label)
+        counts_estimation, true_class_softmax_sum = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label)
         cAHat = counts_estimation.argmax().item()
         pA = true_class_softmax_sum / n
         if pA < 0.5:
-            return Smooth.ABSTAIN, 0.0, summed_outputs / n
+            return Smooth.ABSTAIN, 0.0
         else:
-            return cAHat, self.unit_norm.icdf(torch.clamp(pA, self.eps, 1-self.eps)), summed_outputs / n
+            return cAHat, self.unit_norm.icdf(torch.clamp(pA, self.eps, 1-self.eps))
 
     def predict(self, x: torch.tensor, n: int, alpha: float, batch_size: int) -> int:
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
@@ -110,7 +110,7 @@ class Smooth(object):
         counts = np.zeros(self.num_classes, dtype=int)
         if training:
             true_class_softmax_sum = torch.tensor(0.0).cuda()
-            summed_outputs = torch.zeros(self.num_classes).cuda()  # For cross-entropy loss
+            # summed_outputs = torch.zeros(self.num_classes).cuda()  # For cross-entropy loss
         for _ in range(ceil(num / batch_size)):
             this_batch_size = min(batch_size, num)
             num -= this_batch_size
@@ -123,9 +123,9 @@ class Smooth(object):
             if training:
                 softmax_out = F.softmax(output, dim=1)
                 true_class_softmax_sum += torch.sum(softmax_out[:, truth_label])
-                summed_outputs += torch.sum(output, dim=0)
+                # summed_outputs += torch.sum(output, dim=0)
         if training:
-            return counts, true_class_softmax_sum, summed_outputs
+            return counts, true_class_softmax_sum
         else:
             return counts
 

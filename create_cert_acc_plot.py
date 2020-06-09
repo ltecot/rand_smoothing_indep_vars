@@ -1,11 +1,8 @@
-# TODO: Take a model, calculate objective value for each test dataset point, and just create plot from that.
 
-from certify import load_dataset, load_model, calculate_objective
-
+from certify import load_dataset, load_model, calculate_objective, get_dataset_name
 from mnist_train import Net
 from smoothing import Smooth
 from datasets import get_input_dim, get_num_classes
-from architectures import get_architecture
 
 import argparse
 import torch
@@ -19,25 +16,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 
-# Return the objective value for each data point in the test set.
-def calculate_test_set_objective(args, model, smoothed_classifier, device, test_loader):
-    model.eval()
-    objectives = []
-    with torch.no_grad():
-        for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
-            for i in range(data.shape[0]):
-                prediction, icdf_pabar = smoothed_classifier.certify(data[i], args.N0, args.N, args.alpha, args.batch_smooth)
-                # print(icdf_pabar)
-                if prediction != target[i]:  # If wrong objective is always not added to cert. acc., so use -inf
-                    objectives.append(float("-inf"))
-                else:
-                    objectives.append(calculate_objective(True, args.objective, smoothed_classifier.sigma, icdf_pabar).item())
-    return sorted(objectives)
-
-# Load sigma vectors for when models with a lambda are trained. Placeholder for now.
-def get_sigma_vects(model, dataset):
-    # Load sigmas
+# CUSTOM: Add an option for your model or change for existing model.
+def get_sigma_vects(model):
     if model == "mnist":
         path1 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_19.pt'
         path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_39.pt'
@@ -63,7 +43,7 @@ def get_sigma_vects(model, dataset):
         path2 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
         return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
 
-# Load sigma values for original method testing.
+# CUSTOM: Add an option for your model or change for existing model.
 def get_sigma_vals(model):
     if model == "mnist":
         return {"Isotropic $(\sigma = 0.8)$": 0.8, "Isotropic $(\sigma = 1.2)$": 1.2}
@@ -90,15 +70,29 @@ def write_pickle(args, pkl):
         with open(args.temp_pickle, 'wb') as f:
             pickle.dump(pkl, f, pickle.HIGHEST_PROTOCOL)
 
-# Plots a line for a smoother defined by the sigma
+def calculate_test_set_objective(args, smoothed_classifier, device, test_loader):
+    objectives = []
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            for i in range(data.shape[0]):
+                prediction, icdf_pabar = smoothed_classifier.certify(data[i], args.N0, args.N, args.alpha, args.batch_smooth)
+                if prediction != target[i]:
+                    objectives.append(float("-inf"))
+                else:
+                    objectives.append(calculate_objective(True, args.objective, smoothed_classifier.sigma, icdf_pabar).item())
+    return sorted(objectives)
+
 def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl, fmt):
-    reload_list = []  # Temp workaround for quick re-loading specific lines without re-doing whole thing.
+    reload_list = []  # CUSTOM: Add sigma names here if you want to reload even when using save file.
     if args.tempload and sig_name in pkl and sig_name not in reload_list:
         objectives = pkl[sig_name][0]
         accuracy = pkl[sig_name][1]
     else:
-        smoother = Smooth(model, num_classes=get_num_classes(args.dataset), sigma=sigma, indep_vars=True, data_shape=get_input_dim(args.dataset))
-        objectives = calculate_test_set_objective(args, model, smoother, device, test_loader)
+        smoother = Smooth(model, sigma=sigma, 
+                          num_classes=get_num_classes(get_dataset_name(args.model)), 
+                          data_shape=get_input_dim(get_dataset_name(args.model)))
+        objectives = calculate_test_set_objective(args, smoother, device, test_loader)
         accuracy = np.linspace(1.0, 0.0, num=len(objectives))
         while objectives[0] == float("-inf"):
             objectives = objectives[1:]
@@ -108,27 +102,27 @@ def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl, fmt)
     plt.plot(objectives, accuracy, fmt, label=sig_name)
 
 def main():
-    parser = argparse.ArgumentParser(description='Optimize and compare certified radii')
-
-    parser.add_argument('--model', type=str)
-    parser.add_argument('--dataset', type=str)
-    parser.add_argument('--objective', type=str, default="certified_area")
-    parser.add_argument('--tempsave', action='store_true', default=True)  # Will save plots to quick re-load
-    parser.add_argument('--tempload', action='store_true', default=True)  # Will re-load any unchanged plots
-    parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl")  # Pickle file to save plot data
-
+    parser = argparse.ArgumentParser(description='Calculate randomized smoothing certified areas')
+    parser.add_argument('--model', type=str,
+                        help='filepath to saved model parameters')
+    parser.add_argument('--tempsave', action='store_true', default=False,
+                        help='save plots to be quick re-loaded')
+    parser.add_argument('--tempload', action='store_true', default=False,
+                        help='reload any saved plots from pickle file')
+    parser.add_argument('--temp_pickle', type=str, default="figures/tempdata.pkl",
+                        help='pickle file to save and/or load from')
     parser.add_argument("--batch-smooth", type=int, default=100, help="batch size")
-    parser.add_argument("--N0", type=int, default=100) # 100
-    parser.add_argument("--N", type=int, default=1000, help="number of samples to use") # 100000
+    parser.add_argument("--N0", type=int, default=100)
+    parser.add_argument("--N", type=int, default=1000, help="number of samples to use")
     parser.add_argument("--N-train", type=int, default=100, help="number of samples to use in training")
     parser.add_argument("--alpha", type=float, default=0.001, help="failure probability")
-    parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+    parser.add_argument('--batch-size', type=int, default=16,
                         help='Not important for this, ignore')
-    parser.add_argument('--test-batch-size', type=int, default=16, metavar='N', # 1000
+    parser.add_argument('--test-batch-size', type=int, default=16,
                         help='Not important for this, ignore')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
-    parser.add_argument('--seed', type=int, default=1, metavar='S',
+    parser.add_argument('--seed', type=int, default=1,
                         help='random seed (default: 1)')
     args = parser.parse_args()
 
@@ -143,13 +137,13 @@ def main():
     sigma_vals = get_sigma_vals(args.model)
 
     pkl = load_pickle(args)
-    translate_dict = {}  # Quick workaround. Dict for translating data from labels
+    translate_dict = {}  # CUSTOM: Add key-val pairs to translate key sigma name to val sigma name
     old_pkl = pkl.copy()
     for sig_name in old_pkl:
         if sig_name in translate_dict:
             pkl[translate_dict[sig_name]] = pkl[sig_name]
-    vec_fmts = ['-r', '-m']
-    val_fmts = ['--b', '--c']
+    vec_fmts = ['-r', '-m']  # CUSTOM: Change or add format strings for non-isotropic plot lines
+    val_fmts = ['--b', '--c']  # CUSTOM: Change or add format strings for isotropic plot lines
     with torch.no_grad():
         i = 0
         for sig_name, sigma in sigma_vects.items():
@@ -171,6 +165,7 @@ def main():
     plt.xlabel('Certified Area', fontsize=15)
     plt.xticks(fontsize=12)
     plt.legend(fontsize=12)
+    # CUSTOM: add or change options to customize different plots
     if args.model == "mnist":
         plt.xlim(-4000, 1000)
         plt.ylim(0, 1)

@@ -16,7 +16,7 @@ class Smooth(object):
     # to abstain, Smooth returns this int
     ABSTAIN = -1
 
-    def __init__(self, base_classifier: torch.nn.Module, num_classes: int, sigma, indep_vars=False, data_shape=None):
+    def __init__(self, base_classifier: torch.nn.Module, sigma, num_classes: int, data_shape):
         """
         :param base_classifier: maps from [batch x channel x height x width] to [batch x num_classes]
         :param num_classes:
@@ -24,16 +24,12 @@ class Smooth(object):
         """
         self.base_classifier = base_classifier
         self.num_classes = num_classes
-        if indep_vars:
-            if torch.is_tensor(sigma):
-                self.sigma = torch.tensor(sigma, dtype=torch.float, device='cuda', requires_grad=True)
-            else:
-                self.sigma = torch.tensor(sigma * np.ones(data_shape), dtype=torch.float, device='cuda', requires_grad=True)
+        if torch.is_tensor(sigma):
+            self.sigma = torch.tensor(sigma, dtype=torch.float, device='cuda', requires_grad=True)
         else:
-            self.sigma = torch.tensor(sigma, device='cuda', requires_grad=True)
+            self.sigma = torch.tensor(sigma * np.ones(data_shape), dtype=torch.float, device='cuda', requires_grad=True)
         self.unit_norm = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
         self.eps = 0.0000001 # To prevent icdf from returning infinity.
-        self.indep_vars = indep_vars
 
     def certify(self, x: torch.tensor, n0: int, n: int, alpha: float, batch_size: int) -> (int, float):
         """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
@@ -62,10 +58,7 @@ class Smooth(object):
         else:
             return cAHat, norm.ppf(pABar)
 
-    # TODO: Update docs
-    # Because the real certify percent estimate is bounded in number of samples with this value used
-    # in training, should be fine.
-    def certify_training(self, x: torch.tensor, n0: int, n: int, alpha: float, batch_size: int, truth_label) -> (int, float):
+    def certify_training(self, x: torch.tensor, n: int, batch_size: int, truth_label) -> (int, float):
         """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
         With probability at least 1 - alpha, the class returned by this method will equal g(x), and g's prediction will
         robust within a L2 ball of radius R around x.
@@ -107,8 +100,6 @@ class Smooth(object):
         else:
             return top2[0]
 
-    # TODO: Also update docs here, different return behavior for training
-    # TODO: We apply softmax here. Make sure model doesn't do beforehand.
     def _sample_noise(self, x: torch.tensor, num: int, batch_size, training=False, truth_label=None) -> np.ndarray:
         """ Sample the base classifier's prediction under noisy corruptions of the input x.
         :param x: the input [channel x width x height]

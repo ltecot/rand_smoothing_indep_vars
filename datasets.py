@@ -21,29 +21,15 @@ IMAGENET_LOC_ENV = "IMAGENET_DIR"
 # list of all datasets
 DATASETS = ["imagenet", "imagenet32", "cifar10"]
 
-
-def get_dataset(dataset: str, split: str) -> Dataset:
-    """Return the dataset as a PyTorch Dataset object"""
-    if dataset == "imagenet":
-        # if "PT_DATA_DIR" in os.environ: #running on Philly
-        #     return _imagenet_on_philly(split)
-        # else:
-        return _imagenet(split)
-
-    elif dataset == "imagenet32":
-        return _imagenet32(split)
-    
-    elif dataset == "cifar10":
-        return _cifar10(split)
-
-
+# CUSTOM: Add an option for your model
 def get_num_classes(dataset: str):
     """Return the number of classes in the dataset. """
     if dataset == "imagenet":
         return 1000
-    elif dataset == "cifar10" or dataset =="mnist" or dataset == "fashion_mnist":
+    elif dataset == "cifar10" or dataset == "mnist" or dataset == "fashion_mnist":
         return 10
 
+# CUSTOM: Add an option for your model
 def get_input_dim(dataset: str):
     """Return the input dimension of the dataset. """
     if dataset == "mnist" or dataset == "fashion_mnist":
@@ -52,6 +38,15 @@ def get_input_dim(dataset: str):
         return [3, 32, 32]
     elif dataset == "imagenet":
         return [3, 224, 224]
+
+def get_dataset(dataset: str, split: str) -> Dataset:
+    """Return the dataset as a PyTorch Dataset object"""
+    if dataset == "imagenet":
+        return _imagenet(split)
+    elif dataset == "imagenet32":
+        return _imagenet32(split)
+    elif dataset == "cifar10":
+        return _cifar10(split)
 
 def get_normalize_layer(dataset: str) -> torch.nn.Module:
     """Return the dataset's normalization layer"""
@@ -62,7 +57,6 @@ def get_normalize_layer(dataset: str) -> torch.nn.Module:
     elif dataset == "imagenet32":
         return NormalizeLayer(_CIFAR10_MEAN, _CIFAR10_STDDEV)
 
-
 def get_input_center_layer(dataset: str) -> torch.nn.Module:
     """Return the dataset's Input Centering layer"""
     if dataset == "imagenet":
@@ -70,7 +64,7 @@ def get_input_center_layer(dataset: str) -> torch.nn.Module:
     elif dataset == "cifar10":
         return InputCenterLayer(_CIFAR10_MEAN)
 
-# Just for us because we only have the ILSVRC2012 train set.
+# For using only the ILSVRC2012 train set.
 def imagenet_trainset():
     subdir = "datasets/imagenet"
     transform = transforms.Compose([
@@ -79,7 +73,6 @@ def imagenet_trainset():
         transforms.ToTensor()
     ])
     dataset = datasets.ImageFolder(subdir, transform)
-    # print(len(dataset))
     train_set, test_set, other_set = torch.utils.data.random_split(dataset, [5000, 1000, 1275167]) # Total size is 1281167
     return train_set, test_set
 
@@ -88,7 +81,6 @@ _IMAGENET_STDDEV = [0.229, 0.224, 0.225]
 
 _CIFAR10_MEAN = [0.4914, 0.4822, 0.4465]
 _CIFAR10_STDDEV = [0.2023, 0.1994, 0.2010]
-
 
 def _cifar10(split: str) -> Dataset:
     dataset_path = os.path.join('datasets', 'dataset_cache')

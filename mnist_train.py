@@ -1,4 +1,5 @@
 # Original from https://github.com/pytorch/examples/blob/master/mnist/main.py
+# Train MNIST and Fashion MNIST models.
 
 from __future__ import print_function
 import argparse
@@ -33,6 +34,15 @@ class Net(nn.Module):
         return x
 
 def train(model, device, train_loader, optimizer, epoch, log_interval):
+    """Train MNIST model.
+    Args:
+        model (nn.Module): Model to train.
+        device (torch.device): Device to load data onto.
+        train_loader (torch.utils.data.DataLoader): Train dataset loader.
+        optimizer (torch.optim.Optimizer): Optimizer for model.
+        epoch (int): Epoch of optimization process.
+        log_interval (int): Interval of epochs to write results to stdout.
+    """
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -47,6 +57,12 @@ def train(model, device, train_loader, optimizer, epoch, log_interval):
                 100. * batch_idx / len(train_loader), loss.item()))
 
 def test(model, device, test_loader):
+    """Test MNIST model.
+    Args:
+        model (nn.Module): Model to test.
+        device (torch.device): Device to load data onto.
+        test_loader (torch.utils.data.DataLoader): Test dataset loader.
+    """
     model.eval()
     test_loss = 0
     correct = 0

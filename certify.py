@@ -1,3 +1,5 @@
+# To train and test non-isotropic randomized smoothing.
+
 from mnist_train import Net
 from smoothing import Smooth
 from datasets import get_dataset, imagenet_trainset, get_input_dim, get_num_classes
@@ -16,6 +18,12 @@ from torch.utils.tensorboard import SummaryWriter
 
 # CUSTOM: Add an option for your model
 def get_dataset_name(model):
+    """Converts model name to corresponding dataset name.
+    Args:
+        model (str): Name of model.
+    Returns:
+        (str) Name of dataset.
+    """
     if model == "mnist":
         return "mnist"
     elif model == "fashion_mnist":
@@ -27,6 +35,16 @@ def get_dataset_name(model):
 
 # CUSTOM: Add an option for your model
 def load_dataset(dataset, batch_size, test_batch_size, use_cuda):
+    """Loads the train and test loader for a dataset.
+    Args:
+        dataset (str): Name of dataset.
+        batch_size (int): Batch size of train set.
+        test_batch_size (int): Batch size of test set.
+        use_cuda (bool): Use cuda if true.
+    Returns:
+        (torch.utils.data.DataLoader, torch.utils.data.DataLoader) 
+        Train dataset dataloader, test dataset dataloader.
+    """
     if dataset == "mnist":
         kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
         train_loader = torch.utils.data.DataLoader(
@@ -72,6 +90,13 @@ def load_dataset(dataset, batch_size, test_batch_size, use_cuda):
 
 # CUSTOM: Add an option for your model
 def load_model(model_name, device):
+    """Loads the model.
+    Args:
+        model_name (str): Name of model.
+        device (torch.device): Device to load the model onto.
+    Returns:
+        (nn.Module) Loaded Pytorch model.
+    """
     if model_name == "mnist":
         model = Net().to(device)
         model.load_state_dict(torch.load('models/mnist_cnn.pt'))
@@ -99,6 +124,13 @@ def load_model(model_name, device):
     return model
 
 def calculate_objective(sigma, icdf_pabar):
+    """Calculates the certified area objective.
+    Args:
+        sigma (torch.tensor): Sigma vector.
+        icdf_pabar (torch.tensor/np.array/float): Inverse Gaussian CDF of paBar.
+    Returns:
+        (torch.tensor) Certified area objective, single element tensor.
+    """
     sigma = torch.abs(sigma)  # For log calculation. Negative or positive makes no difference in our formulation.
     eps = 0.000000001 # To prevent log from returning infinity.
     if isinstance(icdf_pabar, float):
@@ -109,6 +141,16 @@ def calculate_objective(sigma, icdf_pabar):
     return objective
 
 def train(args, smoothed_classifier, device, train_loader, optimizer, epoch, writer):
+    """Optimizes sigma for the certified area objective, writes results to tensorboard.
+    Args:
+        args (argparse.ArgumentParser): Sigma vector.
+        smoothed_classifier (smoothing.Smooth): Randomized smoother.
+        device (torch.device): Device to load the data onto.
+        train_loader (torch.utils.data.DataLoader): Train dataset loader.
+        optimizer (torch.optim.Optimizer): Optimizer for smoother's sigma vector.
+        epoch (int): Epoch of optimization process.
+        writer (torch.utils.tensorboard.SummaryWriter): Writer for tensorboard data.
+    """
     avg_objective = torch.tensor([0.0]).cuda()
     avg_accuracy = 0
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -144,6 +186,16 @@ def train(args, smoothed_classifier, device, train_loader, optimizer, epoch, wri
     writer.add_scalar('accuracy/train', avg_accuracy, epoch-1)
 
 def test(args, smoothed_classifier, device, test_loader, epoch, writer, comment):
+    """Tests smoothed classifer for certified area objective, writes results to tensorboard.
+    Args:
+        args (argparse.ArgumentParser): Sigma vector.
+        smoothed_classifier (smoothing.Smooth): Randomized smoother.
+        device (torch.device): Device to load the data onto.
+        test_loader (torch.utils.data.DataLoader): Test dataset loader.
+        epoch (int): Epoch of optimization process.
+        writer (torch.utils.tensorboard.SummaryWriter): Writer for tensorboard data.
+        comment (str): String to append to use for saved sigma filenames.
+    """
     objective = 0
     accuracy = 0
     with torch.no_grad():
@@ -178,9 +230,9 @@ def main():
                         help='learning rate')
     parser.add_argument('--gamma', type=float, default=0.7,
                         help='learning rate step gamma')
-    parser.add_argument('--batch_size', type=int, default=1,
+    parser.add_argument('--batch_size', type=int, default=16,
                         help='input batch size for training')
-    parser.add_argument('--test_batch_size', type=int, default=1,
+    parser.add_argument('--test_batch_size', type=int, default=16,
                         help='input batch size for testing')
     parser.add_argument("--sigma", type=float, default=0.02, 
                         help="constant elements in sigma vector are initialized to")

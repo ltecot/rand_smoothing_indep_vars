@@ -11,16 +11,27 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 
 class Smooth(object):
-    """A smoothed classifier g """
+    """Provides a smoothed classifer of the provided base model.
+    Attributes:
+        base_classifier (torch.nn.Module): The base classifer.
+        sigma (torch.tensor): Sigma tensor for variances of input.
+        num_classes (int): Number of output classes.
+        unit_norm (torch.distributions): Unit norm. Intended for interal usage 
+        eps (float): 
+    """
 
     # to abstain, Smooth returns this int
     ABSTAIN = -1
 
-    def __init__(self, base_classifier: torch.nn.Module, sigma, num_classes: int, data_shape):
+    def __init__(self, base_classifier, sigma, num_classes, data_shape=None):
         """
-        :param base_classifier: maps from [batch x channel x height x width] to [batch x num_classes]
-        :param num_classes:
-        :param sigma: the noise level hyperparameter
+        Args:
+            base_classifier (torch.nn.Module): Base classifer for smoothed classifer.
+            sigma (torch.tensor / float): Initial sigma. Will use a tensor if input, 
+                                          otherwise will be be tensor with this constant value
+                                          in all elements.
+            num_classes (int): Number of output classes.
+            data_shape (iterable[int]): Shape of input data. Only needed if sigma isn't a tensor.
         """
         self.base_classifier = base_classifier
         self.num_classes = num_classes
@@ -31,17 +42,19 @@ class Smooth(object):
         self.unit_norm = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
         self.eps = 0.0000001 # To prevent icdf from returning infinity.
 
-    def certify(self, x: torch.tensor, n0: int, n: int, alpha: float, batch_size: int) -> (int, float):
-        """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
-        With probability at least 1 - alpha, the class returned by this method will equal g(x), and g's prediction will
-        robust within a L2 ball of radius R around x.
-        :param x: the input [channel x height x width]
-        :param n0: the number of Monte Carlo samples to use for selection
-        :param n: the number of Monte Carlo samples to use for estimation
-        :param alpha: the failure probability
-        :param batch_size: batch size to use when evaluating the base classifier
-        :return: (predicted class, certified radius)
-                 in the case of abstention, the class will be ABSTAIN and the radius 0.
+    def certify(self, x, n0, n, alpha, batch_size):
+        """ Monte Carlo algorithm for certifying that g's prediction around x.
+        With probability at least 1 - alpha, the class returned by this method will equal g(x).
+        The returned icdf_paBar can be used with sigma to determine certified deltas.
+        Args:
+            x (torch.tensor): the input
+            n0 (int): the number of Monte Carlo samples to use for selection
+            n (int): the number of Monte Carlo samples to use for estimation
+            alpha (float): the failure probability
+            batch_size (int): batch size to use when evaluating the base classifier
+        Returns:
+            (int, float) Predicted class, inverse Gaussian CDF of paBar.
+            In the case of abstention, the class will be ABSTAIN and icdf_pabar 0.
         """
         self.base_classifier.eval()
         # draw samples of f(x+ epsilon)
@@ -58,17 +71,16 @@ class Smooth(object):
         else:
             return cAHat, norm.ppf(pABar)
 
-    def certify_training(self, x: torch.tensor, n: int, batch_size: int, truth_label) -> (int, float):
-        """ Monte Carlo algorithm for certifying that g's prediction around x is constant within some L2 radius.
-        With probability at least 1 - alpha, the class returned by this method will equal g(x), and g's prediction will
-        robust within a L2 ball of radius R around x.
-        :param x: the input [channel x height x width]
-        :param n0: the number of Monte Carlo samples to use for selection
-        :param n: the number of Monte Carlo samples to use for estimation
-        :param alpha: the failure probability
-        :param batch_size: batch size to use when evaluating the base classifier
-        :return: (predicted class, certified radius)
-                 in the case of abstention, the class will be ABSTAIN and the radius 0.
+    def certify_training(self, x, n, batch_size, truth_label):
+        """ Softmax approximation of certify, to be used during training of sigmas for gradient information.
+        Args:
+            x (torch.tensor): The input
+            n (int): The number of Monte Carlo samples to use for estimation
+            batch_size (int): Batch size to use when evaluating the base classifier
+            truth_label (int): True class of input x.
+        Returns:
+            (int, float) Predicted class, inverse Gaussian CDF of paBar.
+            In the case of abstention, the class will be ABSTAIN and icdf_pabar 0.
         """
         self.base_classifier.eval()
         counts_estimation, true_class_softmax_sum = self._sample_noise(x, n, batch_size, training=True, truth_label=truth_label)
@@ -79,16 +91,18 @@ class Smooth(object):
         else:
             return cAHat, self.unit_norm.icdf(torch.clamp(pA, self.eps, 1-self.eps))
 
-    def predict(self, x: torch.tensor, n: int, alpha: float, batch_size: int) -> int:
+    def predict(self, x, n, alpha, batch_size):
         """ Monte Carlo algorithm for evaluating the prediction of g at x.  With probability at least 1 - alpha, the
         class returned by this method will equal g(x).
         This function uses the hypothesis test described in https://arxiv.org/abs/1610.03944
         for identifying the top category of a multinomial distribution.
-        :param x: the input [channel x height x width]
-        :param n: the number of Monte Carlo samples to use
-        :param alpha: the failure probability
-        :param batch_size: batch size to use when evaluating the base classifier
-        :return: the predicted class, or ABSTAIN
+        Args:
+            x (torch.tensor): the input
+            n (int): the number of Monte Carlo samples to use for estimation
+            alpha (float): the failure probability
+            batch_size (int): batch size to use when evaluating the base classifier
+        Returns:
+            (int) Predicted class. In the case of abstention, the class will be ABSTAIN.
         """
         self.base_classifier.eval()
         counts = self._sample_noise(x, n, batch_size)
@@ -100,12 +114,18 @@ class Smooth(object):
         else:
             return top2[0]
 
-    def _sample_noise(self, x: torch.tensor, num: int, batch_size, training=False, truth_label=None) -> np.ndarray:
+    def _sample_noise(self, x, num, batch_size, training=False, truth_label=None):
         """ Sample the base classifier's prediction under noisy corruptions of the input x.
-        :param x: the input [channel x width x height]
-        :param num: number of samples to collect
-        :param batch_size:
-        :return: an ndarray[int] of length num_classes containing the per-class counts
+        Args:
+            x (torch.tensor): the input
+            num (int): number of samples to collect
+            batch_size (int): batch size to use when evaluating the base classifier
+            training (bool): Indicates whether training and should return softmax output as well.
+            truth_label (int): True label of input. Only needed if training is true.
+        Returns:
+            (ndarray[int]) an ndarray[int] of length num_classes containing the per-class counts
+            (ndarray[int], torch.tensor) if training, one-element tensor containing the summed softmax outputs
+                                         of each sample for the truth label class.
         """
         counts = np.zeros(self.num_classes, dtype=int)
         if training:

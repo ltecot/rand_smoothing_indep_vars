@@ -1,3 +1,5 @@
+# Create certified accuracy vs. certified area plots for specific sigmas.
+
 from certify import load_dataset, load_model, calculate_objective, get_dataset_name
 from smoothing import Smooth
 from datasets import get_input_dim, get_num_classes
@@ -184,7 +186,7 @@ def main():
         plt.xlim(-500000, 0)
         plt.ylim(0, 0.7)
 
-    plt.savefig('figures/cert_acc_' + args.objective + '_' + args.model + '.png')
+    plt.savefig('figures/cert_acc_cert_area_' + args.model + '.png')
 
 if __name__ == '__main__':
     main()

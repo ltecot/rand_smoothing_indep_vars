@@ -1,3 +1,5 @@
+# To gather certified area data for isotropic randomized smoothing.
+
 from certify import load_dataset, load_model, calculate_objective, get_dataset_name
 from mnist_train import Net
 from smoothing import Smooth
@@ -15,6 +17,15 @@ import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
 def test(args, smoothed_classifier, device, test_loader, epoch, writer):
+    """Tests smoothed classifer for certified area objective, writes results to tensorboard.
+    Args:
+        args (argparse.ArgumentParser): Arguments containing N0, N, alpha, and batch_smooth.
+        smoothed_classifier (smoothing.Smooth): Randomized smoother.
+        device (torch.device): Device to load the data onto.
+        test_loader (torch.utils.data.DataLoader): Test dataset loader.
+        epoch (int): Epoch of optimization process.
+        writer (torch.utils.tensorboard.SummaryWriter): Writer for tensorboard data.
+    """
     area_objective = 0
     accuracy = 0
     with torch.no_grad():

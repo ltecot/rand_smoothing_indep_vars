@@ -143,7 +143,7 @@ def calculate_objective(sigma, icdf_pabar):
 def train(args, smoothed_classifier, device, train_loader, optimizer, epoch, writer):
     """Optimizes sigma for the certified area objective, writes results to tensorboard.
     Args:
-        args (argparse.ArgumentParser): Sigma vector.
+        args (argparse.ArgumentParser): Arguments containing N_train and batch_smooth.
         smoothed_classifier (smoothing.Smooth): Randomized smoother.
         device (torch.device): Device to load the data onto.
         train_loader (torch.utils.data.DataLoader): Train dataset loader.
@@ -188,7 +188,7 @@ def train(args, smoothed_classifier, device, train_loader, optimizer, epoch, wri
 def test(args, smoothed_classifier, device, test_loader, epoch, writer, comment):
     """Tests smoothed classifer for certified area objective, writes results to tensorboard.
     Args:
-        args (argparse.ArgumentParser): Sigma vector.
+        args (argparse.ArgumentParser): Arguments containing N0, N, alpha, and batch_smooth.
         smoothed_classifier (smoothing.Smooth): Randomized smoother.
         device (torch.device): Device to load the data onto.
         test_loader (torch.utils.data.DataLoader): Test dataset loader.

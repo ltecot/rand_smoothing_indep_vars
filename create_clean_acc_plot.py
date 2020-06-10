@@ -1,12 +1,19 @@
+# File to take csv's from tensorboard data and make the clean accuracy plots.
 # Convert image files to big : for f in *.png; do convert $f -filter point -scale 1000% big_$f; done
 
 import matplotlib.pyplot as plt
 import numpy as np
 import csv
 
-# points must be sorted in x-axis order according to input order
-# first tuple element is x, second is y
 def line_side(pl, p, pr):
+    """Gets the side of the line p is on.
+    Args:
+        pl (list[int]): Left point of line. (0 is x, 1 is y.)
+        p (list[int]): Testing point.
+        pr (list[int]): Right point of line.
+    Returns:
+        (int) 1 for one side, -1 for other, 0 for on the line.
+    """
 	v1 = (pr[0]-pl[0], pr[1]-pl[1])   # Vector 1
 	v2 = (pr[0]-p[0], pr[1]-p[1])   # Vector 1
 	xp = v1[0]*v2[1] - v1[1]*v2[0]  # Cross product
@@ -17,8 +24,14 @@ def line_side(pl, p, pr):
 	else:
 	    return 0
 
-# Removes all points where there exists two points that form a line above them.
 def convex_hull(objective, accuracy):
+    """Removes all points where there exists two points that form a line above them.
+    Args:
+        objective (list[float]): List of certified area values.
+        accuracy (list[float]): List of clean accuracy values.
+    Returns:
+        (list[float], list[float]) Filtered objective list, filtered accuracy list.
+    """
 	objective, accuracy = zip(*sorted(zip(objective, accuracy)))
 	points = list(zip(objective, accuracy))
 	ind = accuracy.index(max(accuracy))  # Start at index with maximum accuracy
@@ -36,8 +49,14 @@ def convex_hull(objective, accuracy):
 	new_objective, new_accuracy = zip(*new_points)
 	return new_objective, new_accuracy
 
-# Put a blanket over points. AKA retain only points with highest accuracy in an objective range
 def blanket(objective, accuracy):
+    """Put a blanket over points. Retain only points with highest accuracy in an objective range.
+    Args:
+        objective (list[float]): List of certified area values.
+        accuracy (list[float]): List of clean accuracy values.
+    Returns:
+        (list[float], list[float]) Filtered objective list, filtered accuracy list.
+    """
 	accuracy, objective = zip(*sorted(zip(accuracy, objective), reverse=True))
 	new_acc = list(accuracy)[0:2]
 	new_obj = list(objective)[0:2]
@@ -56,6 +75,14 @@ def blanket(objective, accuracy):
 	return new_obj, new_acc
 
 def plot_line(objective_file, accuracy_file, label, fmt, print_index=False):
+    """Plot a clean accuracy line
+    Args:
+        objective_file (str): Filepath to the csv file of certified area from tensorboard data.
+        accuracy_file (str): Filepath to the csv file of acuracy from tensorboard data.
+        label (str): Label to be used for the line in the legend.
+        fmt (str): Format string for the line.
+        print_index (bool): Whether to print out the indexes of the points plotted.
+    """
 	accuracy = []
 	objective = []
 	with open(accuracy_file) as csvfile:
@@ -75,6 +102,8 @@ def plot_line(objective_file, accuracy_file, label, fmt, print_index=False):
 		print([objective.index(o) for o in n_objective])
 	plt.plot(n_objective, n_accuracy, fmt, label=label)
 
+# CUSTOM: Uncomment sections for different plots, or add your own.
+
 # # MNIST cert area
 # acc_file = 'MNIST/csv_files/mnist_acc.csv'
 # obj_file = 'MNIST/csv_files/mnist_area.csv'
@@ -93,18 +122,18 @@ def plot_line(objective_file, accuracy_file, label, fmt, print_index=False):
 # plt.ylim(0.2, 1)
 # plt.xlim(-800, 200)
 
-# CIFAR10 cert area
-acc_file = 'CIFAR10/csv_files/cifar10_acc.csv'
-obj_file = 'CIFAR10/csv_files/cifar10_area.csv'
-rob_acc_file = 'CIFAR10/csv_files/cifar10robust_acc.csv'
-rob_obj_file = 'CIFAR10/csv_files/cifar10robust_area.csv'
-orig_acc_file = 'CIFAR10/csv_files/orig_cifar10_acc.csv'
-orig_obj_file = 'CIFAR10/csv_files/orig_cifar10_area.csv'
-orig_rob_acc_file = 'CIFAR10/csv_files/orig_cifar10robust_acc.csv'
-orig_rob_obj_file = 'CIFAR10/csv_files/orig_cifar10robust_area.csv'
-plot_rob = True
-plt.ylim(0.4, 1)
-plt.xlim(-4500, -1000)
+# # CIFAR10 cert area
+# acc_file = 'CIFAR10/csv_files/cifar10_acc.csv'
+# obj_file = 'CIFAR10/csv_files/cifar10_area.csv'
+# rob_acc_file = 'CIFAR10/csv_files/cifar10robust_acc.csv'
+# rob_obj_file = 'CIFAR10/csv_files/cifar10robust_area.csv'
+# orig_acc_file = 'CIFAR10/csv_files/orig_cifar10_acc.csv'
+# orig_obj_file = 'CIFAR10/csv_files/orig_cifar10_area.csv'
+# orig_rob_acc_file = 'CIFAR10/csv_files/orig_cifar10robust_acc.csv'
+# orig_rob_obj_file = 'CIFAR10/csv_files/orig_cifar10robust_area.csv'
+# plot_rob = True
+# plt.ylim(0.4, 1)
+# plt.xlim(-4500, -1000)
 
 # # Imagenet cert area
 # acc_file = 'Imagenet/csv_files/imagenet_acc.csv'

@@ -18,6 +18,12 @@ from torch.optim.lr_scheduler import StepLR
 
 # CUSTOM: Add an option for your model or change for existing model.
 def get_sigma_vects(model):
+    """Gets key-val pairs for plotting non-isotropic sigmas.
+    Args:
+        model (string): Model name.
+    Returns:
+        dict{string : torch.tensor} Label-vector pairs for each sigma.
+    """
     if model == "mnist":
         path1 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_19.pt'
         path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_39.pt'
@@ -45,6 +51,12 @@ def get_sigma_vects(model):
 
 # CUSTOM: Add an option for your model or change for existing model.
 def get_sigma_vals(model):
+    """Gets key-val pairs for plotting isotropic sigmas.
+    Args:
+        model (string): Model name.
+    Returns:
+        dict{string : float} Label-val pairs for each sigma.
+    """
     if model == "mnist":
         return {"Isotropic $(\sigma = 0.8)$": 0.8, "Isotropic $(\sigma = 1.2)$": 1.2}
     elif model == "fashion_mnist":
@@ -71,6 +83,15 @@ def write_pickle(args, pkl):
             pickle.dump(pkl, f, pickle.HIGHEST_PROTOCOL)
 
 def calculate_test_set_objective(args, smoothed_classifier, device, test_loader):
+    """Calculates certified area objective for every point in test set with the given g.
+    Args:
+        args (argparse.ArgumentParser): Arguments containing N0, N, alpha, and batch_smooth.
+        smoothed_classifier (smoothing.Smooth): Randomized smoother.
+        device (torch.device): Device to load the data onto.
+        test_loader (torch.utils.data.DataLoader): Test dataset loader.
+    Returns:
+        (list[float]) Certified area values for each point in the dataset.
+    """
     objectives = []
     with torch.no_grad():
         for data, target in test_loader:
@@ -84,6 +105,17 @@ def calculate_test_set_objective(args, smoothed_classifier, device, test_loader)
     return sorted(objectives)
 
 def plot_sigma_line(args, model, sig_name, sigma, device, test_loader, pkl, fmt):
+    """Plot a cert accuracy line for a specific sigma.
+    Args:
+        args (argparse.ArgumentParser): Arguments containing model, tempload, tempsave, N0, N, alpha, and batch_smooth.
+        model (nn.Module): Model to train.
+        sig_name (str): Name to label sigma in the plot.
+        sigma (torch.tensor / float): Sigma. Can be a vector for non-isotropic or float for isotropic.
+        device (torch.device): Device to load the data onto.
+        test_loader (torch.utils.data.DataLoader): Test dataset loader.
+        pkl (dict{str : list[float]}): Any saved loaded plot-lines.
+        fmt (str): Format string for the plot line.
+    """
     reload_list = []  # CUSTOM: Add sigma names here if you want to reload even when using save file.
     if args.tempload and sig_name in pkl and sig_name not in reload_list:
         objectives = pkl[sig_name][0]

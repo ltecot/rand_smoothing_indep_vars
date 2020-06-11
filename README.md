@@ -15,7 +15,7 @@ conda install -c anaconda statsmodels
 conda install -c conda-forge matplotlib
 ```
 
-If you wish to run on ImageNet, first obtain a copy of the [ILSVRC 2012 challenge](http://www.image-net.org/challenges/LSVRC/2012/) dataset (or any other copy of the ImageNet train dataset) and place the image folders in the "datsets/imagenet" directory. (You can change the directory in the code by searching for "CUSTOM" and modifying the filepath in "datasets.py".) Alternatively, you can follow the instructions of [Salman et. al.](https://github.com/Hadisalman/smoothing-adversarial) for running on ImageNet and and change out the appropriate functions by modifying the parts labeled "CUSTOM" in "certify.py" and "datasets.py".
+If you wish to run on ImageNet, first obtain a copy of the [ILSVRC 2012 challenge](http://www.image-net.org/challenges/LSVRC/2012/) dataset (or any other copy of the ImageNet train dataset) and place the image folders in the "datasets/imagenet" directory. (You can change the directory in the code by searching for "CUSTOM" and modifying the filepath in "datasets.py".) Alternatively, you can follow the instructions of [Salman et. al.](https://github.com/Hadisalman/smoothing-adversarial) for running on ImageNet and change out the appropriate functions by modifying the parts labelled "CUSTOM" in "certify.py" and "datasets.py".
 
 All models and saved sigma vectors we used for the results in our paper are committed to this repository, with the exception of the pre-trained models provided by [Salman et. al.](https://github.com/Hadisalman/smoothing-adversarial). If you wish to use those, please follow their instructions to download their pre-trained models and place the un-zipped models folder into our "models" directory.
 
@@ -57,7 +57,7 @@ This file tests the original randomized smoothing method. It is similar to certi
 
 All results are written to tensorboard in the "orig_rand_smooth_plot" section. There you can see the accuracy, certified area, and value of sigma at each step.
 
-As an example, lets say we want to get this data for our MNIST model. To do this we can run:
+As an example, lets say we want to get this data for our MNIST model for each sigma at an interval of 0.1. To do this we can run:
 
 ```
 python create_clean_acc_data.py --model=mnist --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
@@ -87,7 +87,7 @@ python create_cert_acc_plot.py --model=mnist --batch_smooth=100 --N0=100 --N=100
 
 This file plots the data created by the "certify.py" and "create_clean_acc_data.py" files. Instead of argument parameters, this file relies on simply commenting and uncommenting different varaibles to change what is plotted. Examples for each of the plots used in our paper can be found in the file.
 
-To plot data from your own results, you will first need to download the CSV data from Tensorboard. First make sure the run you want is visible by checking the box corresponding to the run on the left side. Then check the "Show data download links" box in the top left, click the drop-down option below the plot you want, select the desired run, and hit the CSV button to the right to download the CSV file. 
+To plot data from your own results, you will first need to download the CSV data from Tensorboard. In the Tensorboard GUI, first make sure the run you want is visible by checking the box corresponding to the run on the left side. Then check the "Show data download links" box in the top left, click the drop-down option below the plot you want, select the desired run, and hit the CSV button to the right to download the CSV file. 
 
 The variables in this file should be pointed to each run's downloaded Tensorboard CSV as follows (with model_choice replaced with whatever model option you want to plot):
 
@@ -96,7 +96,7 @@ The variables in this file should be pointed to each run's downloaded Tensorboar
 - orig_acc_file &#8594; create_clean_acc_data.py --model=model_choice, orig_rand_smooth_plot/accuracy
 - orig_obj_file &#8594; create_clean_acc_data.py --model=model_choice, orig_rand_smooth_plot/area_objective
 
-If you wish to plot a model alongside another more robustly trained version (as we did in our paper), set plot_rob to True and set these additional variables as follows (with rob_model_choice as the robust model option):
+If you wish to plot a model alongside another more robustly trained version (as we did in our paper), set "plot_rob" to True and set these additional variables as follows (with rob_model_choice as the robust model option):
 
 - rob_acc_file &#8594; certify.py --model=rob_model_choice, accuracy/test
 - rob_obj_file &#8594; certify.py --model=rob_model_choice, objective/test
@@ -138,7 +138,7 @@ python create_clean_acc_plot.py
 
 You will need to run this file multiple times with the diffect parts commented out in the marked CUSTOM section to get the plots for all datasets.
 
-For the certified accuracy plots, if you wish to use data from your own runs you will need to search for the "CUSTOM" comment marker in the file and change the filepaths to your own saved sigma vectors in the "models/sigmas" file. However, the specific sigma vectors we used are saved in this repository so there is no need for changes if you simply wish to use ours. To create these plots, run the following commands:
+For the certified accuracy plots, if you wish to use data from your own runs you will need to search for the "CUSTOM" comment marker in the "create_cert_acc_plot.py" file and change the filepaths to your own saved sigma vectors in the "models/sigmas" file. However, the specific sigma vectors we used are saved in this repository so there is no need for changes if you simply wish to use ours. To create these plots, run the following commands:
 
 ```
 python create_cert_acc_plot.py --model=mnist --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001

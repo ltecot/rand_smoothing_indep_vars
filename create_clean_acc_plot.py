@@ -148,14 +148,6 @@ def plot_line(objective_file, accuracy_file, label, fmt, print_index=False):
 # plt.ylim(0.2, 0.9)
 # plt.xlim(left=-100000, right=-40000)
 
-# plt.rc('font', size=20)          # controls default text sizes
-# plt.rc('axes', titlesize=20)     # fontsize of the axes title
-# plt.rc('axes', labelsize=20)    # fontsize of the x and y labels
-# plt.rc('xtick', labelsize=12)    # fontsize of the tick labels
-# plt.rc('ytick', labelsize=12)    # fontsize of the tick labels
-# plt.rc('legend', fontsize=12)    # legend fontsize
-# plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
-
 if plot_rob:
 	plot_line(obj_file, acc_file, 'Low Robustness (Ours)', '-r', print_index=True)
 	plot_line(orig_obj_file, orig_acc_file, 'Low Robustness (Cohen et. al.)', '--b')

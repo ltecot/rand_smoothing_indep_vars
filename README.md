@@ -37,8 +37,6 @@ Note that the only current options for the "model" argument in each of these fil
 
 Many of these files use Tensorboard to write out results. See the "Requirements and Setup" section for instructions to run Tensorboard.
 
-TODO: Add examples to each.
-
 ### certify.py
 
 This file will optimize a sigma vector of a smoothed classifer and test for certified area plus accuracy metrics.
@@ -47,25 +45,55 @@ Two arguments of note are "sigma_mod" and "save_sigma". Instead of simply optimi
 
 All results are written to tensorboard. In the tensorboard GUI, the accuracy section will show you the train and test time accuracy of the smoothed classifer. The objective section will show you the certified area. The sigma section will show you the mean and standard deviation of the sigma vector. And if you used the "sigma_mod" option, the sigma_mod section will show you the value sigma was initialized to at the beginning of the beginning of the sub-epochs.
 
+As an example, say we want to optimize a sigma vector for MNIST with an initalization of 0.5 for the whole vector. We can acheieve that as follows:
+
+```
+python certify.py --model=mnist --lr=0.001 --gamma=0.5 --sigma=0.5 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
+```
+
 ### create_clean_acc_data.py
 
 This file tests the original randomized smoothing method. It is similar to certify.py, except it only runs the testing portion and will add "sigma_add" to the used sigma after every epoch. This file was used to get the data for the [Cohen et. al.](https://arxiv.org/abs/1902.02918) method in the clean accuracy vs. certified area plots.
 
 All results are written to tensorboard in the "orig_rand_smooth_plot" section. There you can see the accuracy, certified area, and value of sigma at each step.
 
+As an example, lets say we want to get this data for our MNIST model. To do this we can run:
+
+```
+python create_clean_acc_data.py --model=mnist --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
+```
+
 ### mnist_train.py
 
 This file was used to produce our trained MNIST models. Use the "fashion" option if you instead want to train for Fashion-MNIST. The final model parameters will be saved into the "models" folder.
 
+As an example, lets say that we want to train a model to run on Fashion-MNIST and save the model to file. We can do this by running:
+
+```
+python mnist_train.py --fashion --save_model
+```
+
 ### create_cert_acc_plot.py
 
 This file creates the certified accuracy plots. It relies on trained sigma files saved from the certify file. You can modify which sigma vectors are used per model option (and which sigma values are used for the original method) by modifying the functions marked by the CUSTOM comment. Plots will be saved to the "figures" folder.
+
+As an example, say we want to create a certified accuracy plot for some saved sigmas on the MNIST model. After modifying the filepaths marked with the CUSTOM comment, we can do this by running:
+
+```
+python create_cert_acc_plot.py --model=mnist --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001
+```
 
 ### create_clean_acc_plot.py
 
 This file plots the data created by the "certify.py" and "create_clean_acc_data.py" files. Instead of argument parameters, this file relies on simply commenting and uncommenting different varaibles to change what is plotted. Examples for each of the plots used in our paper can be found in the file.
 
 To plot data from your own results, you will first need to download the CSV data from Tensorboard. Go to the run which you want to use, check the "Show data download links" in the top left, click the drop-down option below the plot you want to select the desired run, then hit the CSV botton to the right to download the CSV file. You will want to download the accuracy and certified area objective data for your run from the "certify.py" file. You'll want to do the same for a corresponding run on the same model from the "create_clean_acc_data.py" file. Then, simply change the filepaths to match the corresponding CSV files. (The "orig_" prefix indicates that it is from the "create_clean_acc_data.py" file, whereas all others are from the "certify.py" file. If the variable name contains "acc" point it to the CSV for the accuracy plot, and likewise for "obj" and certified area.) Furthermore, if you wish to plot a more robust base model side-by-side like we do in our paper, you may do so by setting "plot_rob" to True and adding another pair of filepath variables. (See the file for examples.)
+
+Because this file relies simply on variables commented in and out, the run will always be as follows:
+
+```
+python create_clean_acc_plot.py
+```
 
 ## Reproducing Our Results
 
@@ -74,12 +102,12 @@ Other than our own trained MNIST models, all pre-trained models came from [Salma
 To generate all the data, run the following commands. This will generate all data neccisary for the plots, as well as sigma images.
 
 ```
-python certify.py --model=mnist -lr=0.001 --gamma=0.5 --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --sub_epochs=5 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
-python certify.py --model=fashion_mnist -lr=0.001 --gamma=0.5 --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --sub_epochs=5 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
-python certify.py --model=cifar10 -lr=0.0002 --gamma=0.5 --batch_size=16 --test_batch_size=16 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
-python certify.py --model=cifar10_robust -lr=0.0002 --gamma=0.5 --batch_size=16 --test_batch_size=16 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
-python certify.py --model=imagenet -lr=0.0002 --gamma=0.5 --batch_size=1 --test_batch_size=1 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
-python certify.py --model=imagenet_robust -lr=0.0002 --gamma=0.5 --batch_size=1 --test_batch_size=1 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
+python certify.py --model=mnist --lr=0.001 --gamma=0.5 --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --sub_epochs=5 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
+python certify.py --model=fashion_mnist --lr=0.001 --gamma=0.5 --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --sub_epochs=5 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
+python certify.py --model=cifar10 --lr=0.0002 --gamma=0.5 --batch_size=16 --test_batch_size=16 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
+python certify.py --model=cifar10_robust --lr=0.0002 --gamma=0.5 --batch_size=16 --test_batch_size=16 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
+python certify.py --model=imagenet --lr=0.0002 --gamma=0.5 --batch_size=1 --test_batch_size=1 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
+python certify.py --model=imagenet_robust --lr=0.0002 --gamma=0.5 --batch_size=1 --test_batch_size=1 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
 python create_clean_acc_data.py --model=mnist --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
 python create_clean_acc_data.py --model=fashion_mnist --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
 python create_clean_acc_data.py --model=cifar10 --batch_size=16 --test_batch_size=16 --sigma=0.05 --sigma_add=0.05 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
@@ -88,6 +116,23 @@ python create_clean_acc_data.py --model=imagenet --batch_size=1 --test_batch_siz
 python create_clean_acc_data.py --model=imagenet_robust --batch_size=1 --test_batch_size=1 --sigma=0.05 --sigma_add=0.05 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
 ```
 
-## Contributing
+After this, to create the clean accuracy plots you will need to download the results from Tensorboard and set the correct filepaths in the "create_clean_acc_plot.py" file, as detailed in its subsection above. After that all you need to do is run the file as follows to achieve the same plot results:
 
-TODO: Liscense?
+```
+python create_clean_acc_plot.py
+```
+
+You will need to run this file multiple times with the diffect sections commented out to get the plots for all datasets.
+
+For the certified accuracy plots, if you wish to use data from your own runs you will need to search for the "CUSTOM" comment marker in the file and change the filepaths to your own saved sigma vectors in the "models/sigmas" file. However, the specific sigma vectors we used are saved in this repository so there is no need for changes if you simply wish to use ours. To create these plots, run the following commands:
+
+```
+python create_cert_acc_plot.py --model=mnist --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001
+python create_cert_acc_plot.py --model=fashion_mnist --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001
+python create_cert_acc_plot.py --model=cifar10 --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001
+python create_cert_acc_plot.py --model=cifar10_robust --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001
+python create_cert_acc_plot.py --model=imagenet --batch_smooth=50 --N0=100 --N=1000 --alpha=0.001
+python create_cert_acc_plot.py --model=imagenet_robust --batch_smooth=50 --N0=100 --N=1000 --alpha=0.001
+```
+
+The final plots can then be found in the "figures" folder, with the model option included in the filename to indicate which plot corresponds to which model.

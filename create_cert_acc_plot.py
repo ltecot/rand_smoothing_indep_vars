@@ -149,8 +149,6 @@ def main():
                         help='number of samples used in when estimating smoothed classifer prediction')
     parser.add_argument("--N", type=int, default=1000, 
                         help="number of samples used when estimating paBar")
-    parser.add_argument("--N_train", type=int, default=100, 
-                        help="number of samples to use in training when the smoothed classifer samples noise")
     parser.add_argument("--alpha", type=float, default=0.001, 
                         help="probability that paBar is not a true lower bound on pA")
     parser.add_argument('--no_cuda', action='store_true', default=False,

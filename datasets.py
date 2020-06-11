@@ -66,7 +66,7 @@ def get_input_center_layer(dataset: str) -> torch.nn.Module:
 
 # For using only the ILSVRC2012 train set.
 def imagenet_trainset():
-    subdir = "datasets/imagenet"
+    subdir = "datasets/imagenet"  # CUSTOM: Change filepath
     transform = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),

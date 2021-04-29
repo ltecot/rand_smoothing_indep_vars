@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torchvision import datasets, transforms
+from torchvision import datasets, transforms, models
 from torchvision.utils import save_image
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.tensorboard import SummaryWriter
@@ -106,15 +106,17 @@ def load_model(model_name, device):
     elif model_name == "cifar10":
         checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_64/cifar10/resnet110/noise_0.12/checkpoint.pth.tar")
         model = get_architecture(checkpoint["arch"], "cifar10")
-        model.load_state_dict(checkpoint['state_dict'])
+        # model.load_state_dict(checkpoint['state_dict'])
+        model.load_state_dict(torch.load('models/cifar10.pt'))
     elif model_name == "cifar10_robust":
         checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_512/cifar10/resnet110/noise_0.12/checkpoint.pth.tar")
         model = get_architecture(checkpoint["arch"], "cifar10")
         model.load_state_dict(checkpoint['state_dict'])
     elif model_name == "imagenet":
-        checkpoint = torch.load("models/pretrained_models/imagenet/PGD_1step/imagenet/eps_127/resnet50/noise_0.25/checkpoint.pth.tar")
-        model = get_architecture(checkpoint["arch"], "imagenet")
-        model.load_state_dict(checkpoint['state_dict'])
+        # checkpoint = torch.load("models/pretrained_models/imagenet/PGD_1step/imagenet/eps_127/resnet50/noise_0.25/checkpoint.pth.tar")
+        # model = get_architecture(checkpoint["arch"], "imagenet")
+        # model.load_state_dict(checkpoint['state_dict'])
+        model = models.resnet50(pretrained=True).cuda()
     elif model_name == "imagenet_robust":
         checkpoint = torch.load("models/pretrained_models/imagenet/PGD_1step/imagenet/eps_1024/resnet50/noise_0.25/checkpoint.pth.tar")
         model = get_architecture(checkpoint["arch"], "imagenet")
@@ -226,35 +228,35 @@ def main():
     parser = argparse.ArgumentParser(description='Optimize certified area')
     parser.add_argument('--model', type=str,
                         help='filepath to saved model parameters')
-    parser.add_argument('--lr', type=float, default=0.0001,
+    parser.add_argument('--lr', type=float, default=0.005,
                         help='learning rate')
-    parser.add_argument('--gamma', type=float, default=0.7,
+    parser.add_argument('--gamma', type=float, default=0.8,
                         help='learning rate step gamma')
-    parser.add_argument('--batch_size', type=int, default=16,
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training')
-    parser.add_argument('--test_batch_size', type=int, default=16,
+    parser.add_argument('--test_batch_size', type=int, default=32,
                         help='input batch size for testing')
-    parser.add_argument("--sigma", type=float, default=0.02, 
+    parser.add_argument("--sigma", type=float, default=0.025, 
                         help="constant elements in sigma vector are initialized to")
-    parser.add_argument("--sigma_add", type=float, default=0.02, 
+    parser.add_argument("--sigma_add", type=float, default=0.025, 
                         help="amount to add to sigma per sub-epoch if doing sigma modulation")
     parser.add_argument('--epochs', type=int, default=200,
                         help='number of epochs to train')
-    parser.add_argument('--sub_epochs', type=int, default=4,
+    parser.add_argument('--sub_epochs', type=int, default=10,
                         help='number of epochs to optimize for per initialization if doing sigma modulation')
     parser.add_argument('--comment_add', type=str, default="",
                         help='string to add to the end of name used for tensorboard and sigma filesaves')
-    parser.add_argument('--sigma_mod', action='store_true', default=False,
+    parser.add_argument('--sigma_mod', action='store_true', default=True,
                         help='modulate sigma, re-initialize after sub-epochs to train multiple times')
-    parser.add_argument('--save_sigma', action='store_true', default=False,
+    parser.add_argument('--save_sigma', action='store_true', default=True,
                         help='save the sigma vector')
-    parser.add_argument("--batch_smooth", type=int, default=64, 
+    parser.add_argument("--batch_smooth", type=int, default=32, 
                         help="batch size for smoothed classifer when sampling random noise")
-    parser.add_argument("--N0", type=int, default=64,
+    parser.add_argument("--N0", type=int, default=32,
                         help='number of samples used in when estimating smoothed classifer prediction')
-    parser.add_argument("--N", type=int, default=512, 
+    parser.add_argument("--N", type=int, default=256,
                         help="number of samples used when estimating paBar")
-    parser.add_argument("--N_train", type=int, default=64, 
+    parser.add_argument("--N_train", type=int, default=32, 
                         help="number of samples to use in training when the smoothed classifer samples noise")
     parser.add_argument("--alpha", type=float, default=0.001, 
                         help="probability that paBar is not a true lower bound on pA")

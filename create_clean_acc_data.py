@@ -47,21 +47,21 @@ def main():
     parser = argparse.ArgumentParser(description='get clean accuracy vs certified area plots for original randomized smoothing')
     parser.add_argument('--model', type=str,
                         help='filepath to saved model parameters')
-    parser.add_argument("--sigma", type=float, default=0.025, 
+    parser.add_argument("--sigma", type=float, default=0, 
                         help="constant elements in sigma vector are initialized to")
     parser.add_argument("--sigma_add", type=float, default=0.025, 
                         help="amount to add to sigma per epoch")
-    parser.add_argument('--epochs', type=int, default=200,
+    parser.add_argument('--epochs', type=int, default=400,
                         help='number of epochs to train')
-    parser.add_argument('--batch_size', type=int, default=16,
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='input batch size for training')
-    parser.add_argument('--test_batch_size', type=int, default=16,
+    parser.add_argument('--test_batch_size', type=int, default=32,
                         help='input batch size for testing')
-    parser.add_argument("--batch_smooth", type=int, default=64, 
+    parser.add_argument("--batch_smooth", type=int, default=32, 
                         help="batch size for smoothed classifer when sampling random noise")
-    parser.add_argument("--N0", type=int, default=64,
+    parser.add_argument("--N0", type=int, default=32,
                         help='number of samples used in when estimating smoothed classifer prediction')
-    parser.add_argument("--N", type=int, default=512, 
+    parser.add_argument("--N", type=int, default=256, 
                         help="number of samples used when estimating paBar")
     parser.add_argument("--alpha", type=float, default=0.001, 
                         help="probability that paBar is not a true lower bound on pA")

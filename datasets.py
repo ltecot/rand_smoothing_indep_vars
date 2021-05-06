@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, datasets
+from skimage import io, transform
 from torchvision.datasets.utils import check_integrity
 from typing import *
 
@@ -21,10 +22,41 @@ IMAGENET_LOC_ENV = "IMAGENET_DIR"
 # list of all datasets
 DATASETS = ["imagenet", "imagenet32", "cifar10"]
 
+class KittiDataset(Dataset):
+
+    def __init__(self, root_dir):
+        self.data_dir = os.path.join(root_dir, 'data/training/image_2')
+        # self.label_dir = os.path.join(root_dir, 'labels/training/image_2')
+        self.label_dir = os.path.join(root_dir, 'coco_labels/training/label_2')
+        # print(self.data_dir)
+        # print(self.label_dir)
+
+    def __len__(self):
+        # print([name for name in os.listdir(self.data_dir) if ('.png' in name)])s
+        data_len = len([name for name in os.listdir(self.data_dir) if ('.png' in name)])
+        label_len = len([name for name in os.listdir(self.label_dir) if ('.txt' in name)])
+        return min(data_len, label_len)
+
+    def __getitem__(self, idx):
+        name = str(idx).zfill(6)
+        img_name = os.path.join(self.data_dir, name + '.png')
+        label_name = os.path.join(self.label_dir, name + '.txt')
+        image = transform.resize(io.imread(img_name), (224, 224))  # 375, 1250
+        image = np.asarray(image, dtype='f').transpose(2,0,1)
+        # image = io.imread(img_name)
+        label_file = open(label_name).read().split('\n')
+        label_file.remove('')
+        # print(label_file)
+        labels = [int(l[0]) for l in label_file]
+        label = max(labels,key=labels.count)
+        # sample = {'image': image, 'label': label}
+        # print(label)
+        return (image, label)
+
 # CUSTOM: Add an option for your model
 def get_num_classes(dataset: str):
     """Return the number of classes in the dataset. """
-    if dataset == "imagenet":
+    if dataset == "imagenet" or dataset == "kitti":
         return 1000
     elif dataset == "cifar10" or dataset == "mnist" or dataset == "fashion_mnist":
         return 10
@@ -36,7 +68,7 @@ def get_input_dim(dataset: str):
         return [1, 28, 28]
     elif dataset == "cifar10":
         return [3, 32, 32]
-    elif dataset == "imagenet":
+    elif dataset == "imagenet" or dataset == "kitti":
         return [3, 224, 224]
 
 def get_dataset(dataset: str, split: str) -> Dataset:

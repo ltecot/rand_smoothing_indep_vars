@@ -2,7 +2,7 @@
 
 from mnist_train import Net
 from smoothing import Smooth
-from datasets import get_dataset, imagenet_trainset, get_input_dim, get_num_classes
+from datasets import get_dataset, imagenet_trainset, get_input_dim, get_num_classes, KittiDataset
 from architectures import get_architecture
 
 import argparse
@@ -32,6 +32,8 @@ def get_dataset_name(model):
         return "cifar10"
     elif model == "imagenet" or model == "imagenet_robust":
         return "imagenet"
+    elif model == "kitti":
+        return "kitti"
 
 # CUSTOM: Add an option for your model
 def load_dataset(dataset, batch_size, test_batch_size, use_cuda):
@@ -84,6 +86,14 @@ def load_dataset(dataset, batch_size, test_batch_size, use_cuda):
         train_set, test_set = imagenet_trainset()
         train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, **kwargs)
         test_loader = torch.utils.data.DataLoader(test_set, batch_size=test_batch_size, shuffle=True, **kwargs)
+    elif dataset == "kitti":
+        kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+        data_path = 'data/train/'
+        dataset = KittiDataset('../datasets/kitti')
+        # print(len(dataset))
+        train_set, test_set = torch.utils.data.random_split(dataset, [6733, 748]) # 7481
+        train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size, shuffle=True, **kwargs)
+        test_loader = torch.utils.data.DataLoader(test_set, batch_size=test_batch_size, shuffle=True, **kwargs)
     else:
         raise Exception("Must enter a valid dataset name")
     return train_loader, test_loader
@@ -121,6 +131,9 @@ def load_model(model_name, device):
         checkpoint = torch.load("models/pretrained_models/imagenet/PGD_1step/imagenet/eps_1024/resnet50/noise_0.25/checkpoint.pth.tar")
         model = get_architecture(checkpoint["arch"], "imagenet")
         model.load_state_dict(checkpoint['state_dict'])
+    elif model_name == "kitti":
+        model = models.resnet50(pretrained=False).cuda()
+        model.load_state_dict(torch.load('models/kitti.pt'))
     else:
         raise Exception("Must enter a valid model name")
     return model
@@ -232,9 +245,9 @@ def main():
                         help='learning rate')
     parser.add_argument('--gamma', type=float, default=0.8,
                         help='learning rate step gamma')
-    parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size', type=int, default=2,
                         help='input batch size for training')
-    parser.add_argument('--test_batch_size', type=int, default=32,
+    parser.add_argument('--test_batch_size', type=int, default=2,
                         help='input batch size for testing')
     parser.add_argument("--sigma", type=float, default=0.025, 
                         help="constant elements in sigma vector are initialized to")
@@ -277,6 +290,9 @@ def main():
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     train_loader, test_loader = load_dataset(get_dataset_name(args.model), args.batch_size, args.test_batch_size, use_cuda)
+    for batch_idx, (data, target) in enumerate(train_loader):
+        if batch_idx < 10:
+            print(batch_idx, data.size(), target)
     model = load_model(args.model, device)
     model.eval()
     writer = SummaryWriter(comment=comment)

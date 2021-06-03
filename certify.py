@@ -241,7 +241,7 @@ def main():
     parser = argparse.ArgumentParser(description='Optimize certified area')
     parser.add_argument('--model', type=str,
                         help='filepath to saved model parameters')
-    parser.add_argument('--lr', type=float, default=0.005,
+    parser.add_argument('--lr', type=float, default=0.001,
                         help='learning rate')
     parser.add_argument('--gamma', type=float, default=0.8,
                         help='learning rate step gamma')
@@ -249,9 +249,9 @@ def main():
                         help='input batch size for training')
     parser.add_argument('--test_batch_size', type=int, default=2,
                         help='input batch size for testing')
-    parser.add_argument("--sigma", type=float, default=0.025, 
+    parser.add_argument("--sigma", type=float, default=0.01, 
                         help="constant elements in sigma vector are initialized to")
-    parser.add_argument("--sigma_add", type=float, default=0.025, 
+    parser.add_argument("--sigma_add", type=float, default=0.01, 
                         help="amount to add to sigma per sub-epoch if doing sigma modulation")
     parser.add_argument('--epochs', type=int, default=200,
                         help='number of epochs to train')
@@ -259,7 +259,7 @@ def main():
                         help='number of epochs to optimize for per initialization if doing sigma modulation')
     parser.add_argument('--comment_add', type=str, default="",
                         help='string to add to the end of name used for tensorboard and sigma filesaves')
-    parser.add_argument('--sigma_mod', action='store_true', default=True,
+    parser.add_argument('--sigma_mod', action='store_true', default=False,
                         help='modulate sigma, re-initialize after sub-epochs to train multiple times')
     parser.add_argument('--save_sigma', action='store_true', default=True,
                         help='save the sigma vector')
@@ -290,9 +290,9 @@ def main():
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     train_loader, test_loader = load_dataset(get_dataset_name(args.model), args.batch_size, args.test_batch_size, use_cuda)
-    for batch_idx, (data, target) in enumerate(train_loader):
-        if batch_idx < 10:
-            print(batch_idx, data.size(), target)
+    # for batch_idx, (data, target) in enumerate(train_loader):
+    #     if batch_idx < 10:
+    #         print(batch_idx, data.size(), target)
     model = load_model(args.model, device)
     model.eval()
     writer = SummaryWriter(comment=comment)
@@ -312,7 +312,7 @@ def main():
                 scheduler.step() 
             sigma += args.sigma_add
     else:
-        smoother = Smooth(model, sigma=sigma, 
+        smoother = Smooth(model, sigma=args.sigma, 
                           num_classes=get_num_classes(get_dataset_name(args.model)), 
                           data_shape=get_input_dim(get_dataset_name(args.model)))
         optimizer = optim.Adam([smoother.sigma], lr=args.lr)

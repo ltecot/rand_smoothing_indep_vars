@@ -49,11 +49,11 @@ def main():
                         help='filepath to saved model parameters')
     parser.add_argument("--sigma", type=float, default=0, 
                         help="constant elements in sigma vector are initialized to")
-    parser.add_argument("--sigma_add", type=float, default=0.025, 
+    parser.add_argument("--sigma_add", type=float, default=0.005, 
                         help="amount to add to sigma per epoch")
     parser.add_argument('--epochs', type=int, default=400,
                         help='number of epochs to train')
-    parser.add_argument('--batch_size', type=int, default=32,
+    parser.add_argument('--batch_size', type=int, default=2,
                         help='input batch size for training')
     parser.add_argument('--test_batch_size', type=int, default=32,
                         help='input batch size for testing')

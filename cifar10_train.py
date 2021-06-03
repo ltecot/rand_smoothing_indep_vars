@@ -7,6 +7,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 from certify import load_dataset, load_model
+from architectures import get_architecture
 
 def train(model, device, train_loader, optimizer, epoch, log_interval):
     """Train MNIST model.
@@ -80,7 +81,8 @@ def main():
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if use_cuda else "cpu")
     train_loader, test_loader = load_dataset("cifar10", args.batch_size, args.test_batch_size, use_cuda)
-    model = load_model("cifar10", device)
+    checkpoint = torch.load("models/pretrained_models/cifar10/finetune_cifar_from_imagenetPGD2steps/PGD_10steps_30epochs_multinoise/2-multitrain/eps_64/cifar10/resnet110/noise_0.12/checkpoint.pth.tar")
+    model = get_architecture(checkpoint["arch"], "cifar10")
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):

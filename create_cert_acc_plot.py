@@ -27,27 +27,31 @@ def get_sigma_vects(model):
     if model == "mnist":
         path1 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_19.pt'
         path2 = 'models/sigmas/sigma_MODEL_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_39.pt'
-        return {"Nonisotropic $(\sigma = 0.8)$": torch.load(path1), "Nonisotropic $(\sigma = 1.2)$": torch.load(path2)}
+        return {"Nonisotropic $(\sigma_{init} = 0.8)$": torch.load(path1), "Nonisotropic $(\sigma_{init} = 1.2)$": torch.load(path2)}
     if model == "fashion_mnist":
         path1 = 'models/sigmas/sigma_MODEL_fashion_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_34.pt'
         path2 = 'models/sigmas/sigma_MODEL_fashion_mnist_OBJECTIVE_certified_area_LR_0.001_GAMMA_0.5_SIGMA_MOD_EPOCH_74.pt'
-        return {"Nonisotropic $(\sigma = 0.7)$": torch.load(path1), "Nonisotropic $(\sigma = 1.5)$": torch.load(path2)}
+        return {"Nonisotropic $(\sigma_{init} = 0.7)$": torch.load(path1), "Nonisotropic $(\sigma_{init} = 1.5)$": torch.load(path2)}
     elif model == "cifar10":
-        path1 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_3.pt'
-        path2 = 'models/sigmas/sigma_MODEL_cifar10_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_5.pt'
-        return {"Nonisotropic $(\sigma = 0.2)$": torch.load(path1), "Nonisotropic $(\sigma = 0.3)$": torch.load(path2)}
+        path1 = 'models/sigmas/sigma_MODEL_cifar10_LR_0.005_GAMMA_0.8_SIGMA_MOD_EPOCH_129.pt'
+        path2 = 'models/sigmas/sigma_MODEL_cifar10_LR_0.005_GAMMA_0.8_SIGMA_MOD_EPOCH_138.pt'
+        return {"Nonisotropic $(\sigma_{init} = 0.325)$": torch.load(path1), "Nonisotropic $(\sigma_{init} = 0.35)$": torch.load(path2)}
     elif model == "cifar10_robust":
         path1 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_5.pt'
         path2 = 'models/sigmas/sigma_MODEL_cifar10_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
         return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
     elif model == "imagenet":
-        path1 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_4.pt'
-        path2 = 'models/sigmas/sigma_MODEL_imagenet_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
+        path1 = 'models/sigmas/sigma_MODEL_imagenet_LR_0.002_GAMMA_0.8neurips3_EPOCH_40.pt'
+        path2 = 'models/sigmas/sigma_MODEL_imagenet_LR_0.002_GAMMA_0.8neurips4_EPOCH_40.pt'
         return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
     elif model == "imagenet_robust":
         path1 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_5.pt'
         path2 = 'models/sigmas/sigma_MODEL_imagenet_robust_OBJECTIVE_certified_area_LR_0.0002_GAMMA_0.5_SIGMA_MOD_R6_EPOCH_7.pt'
         return {"Nonisotropic $(\sigma = 0.3)$": torch.load(path1), "Nonisotropic $(\sigma = 0.4)$": torch.load(path2)}
+    elif model == "kitti":
+        path1 = 'models/sigmas/sigma_MODEL_kitti_LR_0.005_GAMMA_0.8_SIGMA_MOD_EPOCH_21.pt'
+        path2 = 'models/sigmas/sigma_MODEL_kitti_LR_0.005_GAMMA_0.8_SIGMA_MOD_EPOCH_11.pt'
+        return {"Nonisotropic $(\sigma_{init} = 0.075)$": torch.load(path1), "Nonisotropic $(\sigma_{init} = 0.05)$": torch.load(path2)}
 
 # CUSTOM: Add an option for your model or change for existing model.
 def get_sigma_vals(model):
@@ -62,13 +66,15 @@ def get_sigma_vals(model):
     elif model == "fashion_mnist":
         return {"Isotropic $(\sigma = 0.6)$": 0.6, "Isotropic $(\sigma = 1.4)$": 1.4}
     elif model == "cifar10":
-        return {"Isotropic $(\sigma = 0.17)$": 0.17, "Isotropic $(\sigma = 0.23)$": 0.23}
+        return {"Isotropic $(\sigma = 0.042)$": 0.042, "Isotropic $(\sigma = 0.05)$": 0.05}
     elif model == "cifar10_robust":
         return {"Isotropic $(\sigma = 0.22)$": 0.22, "Isotropic $(\sigma = 0.35)$": 0.35}
     elif model == "imagenet":
         return {"Isotropic $(\sigma = 0.26)$": 0.26, "Isotropic $(\sigma = 0.36)$": 0.36}
     elif model == "imagenet_robust":
         return {"Isotropic $(\sigma = 0.28)$": 0.28, "Isotropic $(\sigma = 0.37)$": 0.37}
+    elif model == "kitti":
+        return {"Isotropic $(\sigma = 0.1)$": 0.1, "Isotropic $(\sigma = 0.2)$": 0.2}
 
 def load_pickle(args):
     if args.tempload:
@@ -204,8 +210,8 @@ def main():
         plt.xlim(-4000, 1000)
         plt.ylim(0, 0.85)
     elif args.model == "cifar10":
-        plt.xlim(-23000, 0)
-        plt.ylim(0, 0.9)
+        plt.xlim(-15000, -5000)
+        plt.ylim(0, 1)
     elif args.model == "cifar10_robust":
         plt.xlim(-15000, 0)
         plt.ylim(0, 0.7)
@@ -215,6 +221,10 @@ def main():
     elif args.model == "imagenet_robust":
         plt.xlim(-500000, 0)
         plt.ylim(0, 0.7)
+    elif args.model == "kitti":
+        plt.xlim(-500000, 0)
+        plt.legend( loc = 'lower left')
+        # plt.ylim(0, 1)
 
     plt.savefig('figures/cert_acc_cert_area_' + args.model + '.png')
 

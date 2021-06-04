@@ -15,9 +15,7 @@ conda install -c anaconda statsmodels
 conda install -c conda-forge matplotlib
 ```
 
-If you wish to run on ImageNet, first obtain a copy of the [ILSVRC 2012 challenge](http://www.image-net.org/challenges/LSVRC/2012/) dataset (or any other copy of the ImageNet train dataset) and place the image folders in the "datasets/imagenet" directory. (You can change the directory in the code by searching for "CUSTOM" and modifying the filepath in "datasets.py".) Alternatively, you can follow the instructions of [Salman et. al.](https://github.com/Hadisalman/smoothing-adversarial) for running on ImageNet and change out the appropriate functions by modifying the parts labelled "CUSTOM" in "certify.py" and "datasets.py".
-
-All models and saved sigma vectors we used for the results in our paper are committed to this repository, with the exception of the pre-trained models provided by [Salman et. al.](https://github.com/Hadisalman/smoothing-adversarial). If you wish to use those, please follow their instructions to download their pre-trained models and place the un-zipped models folder into our "models" directory.
+If you wish to run on ImageNet, first obtain a copy of the [ILSVRC 2012 challenge](http://www.image-net.org/challenges/LSVRC/2012/) dataset (or any other copy of the ImageNet train dataset) and place the image folders in the "datasets/imagenet" directory. (You can change the directory in the code by searching for "CUSTOM" and modifying the filepath in "datasets.py".)
 
 Often files will write their results to Tensorboard. Follow the [Pytorch Tensorboard instructions](https://pytorch.org/docs/stable/tensorboard.html) to set up Tensorboard and read the data. However, often all you will need to do is run the following in the repository directory:
 
@@ -33,7 +31,7 @@ The following files are the ones intended for direct usage. Generally all inform
 
 Furthermore, note that whenever any custom changes may needed to be made by the user to the code, the appropraite sections will usually be marked by the CUSTOM comment. So it is useful to search the files for this comment marker if you wish to make modifications. 
 
-Note that the only current options for the "model" argument in each of these files is "mnist", "fashion_mnist", "cifar10", "cifar10_robust", "imagenet", and "imagenet_robust". If you wish to add any models (or simply change one of the options we have already written), you will need to search for this CUSTOM comment and change the appropriate sections in the "certify.py" and "datasets.py" files. All other files only need to be modified if you are using only them specifically.
+Note that the only current options for the "model" argument in each of these files is "mnist", "fashion_mnist", "cifar10", "imagenet", and "kitti". If you wish to add any models (or simply change one of the options we have already written), you will need to search for this CUSTOM comment and change the appropriate sections in the "certify.py" and "datasets.py" files. All other files only need to be modified if you are using only them specifically.
 
 Many of these files use Tensorboard to write out results. See the "Requirements and Setup" section for instructions to run Tensorboard.
 
@@ -96,13 +94,6 @@ The variables in this file should be pointed to each run's downloaded Tensorboar
 - orig_acc_file &#8594; create_clean_acc_data.py --model=model_choice, orig_rand_smooth_plot/accuracy
 - orig_obj_file &#8594; create_clean_acc_data.py --model=model_choice, orig_rand_smooth_plot/area_objective
 
-If you wish to plot a model alongside another more robustly trained version (as we did in our paper), set "plot_rob" to True and set these additional variables as follows (with rob_model_choice as the robust model option):
-
-- rob_acc_file &#8594; certify.py --model=rob_model_choice, accuracy/test
-- rob_obj_file &#8594; certify.py --model=rob_model_choice, objective/test
-- orig_rob_acc_file &#8594; create_clean_acc_data.py --model=rob_model_choice, orig_rand_smooth_plot/accuracy
-- orig_rob_obj_file &#8594; create_clean_acc_data.py --model=rob_model_choice, orig_rand_smooth_plot/area_objective
-
 Because this file relies simply on variables commented in and out, the run will always be as follows:
 
 ```
@@ -118,16 +109,14 @@ To generate all the data, run the following commands. This will generate all dat
 ```
 python certify.py --model=mnist --lr=0.001 --gamma=0.5 --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --sub_epochs=5 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
 python certify.py --model=fashion_mnist --lr=0.001 --gamma=0.5 --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --sub_epochs=5 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
-python certify.py --model=cifar10 --lr=0.0002 --gamma=0.5 --batch_size=16 --test_batch_size=16 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
-python certify.py --model=cifar10_robust --lr=0.0002 --gamma=0.5 --batch_size=16 --test_batch_size=16 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
-python certify.py --model=imagenet --lr=0.0002 --gamma=0.5 --batch_size=1 --test_batch_size=1 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
-python certify.py --model=imagenet_robust --lr=0.0002 --gamma=0.5 --batch_size=1 --test_batch_size=1 --sigma=0.05 --sigma_add=0.05 --epochs=20 --sub_epochs=2 --sigma_mod --save_sigma --batch_smooth=64 --N0=64 --N=512 --N_train=64 --alpha=0.001
+python certify.py --model=cifar10 --lr=0.005 --gamma=0.8 --batch_size=32 --test_batch_size=32 --sigma=0.01 --sigma_add=0.01 --epochs=50 --sub_epochs=10 --sigma_mod --save_sigma --batch_smooth=32 --N0=64 --N=256 --N_train=32 --alpha=0.001
+python certify.py --model=imagenet --lr=0.001 --gamma=0.8 --batch_size=2 --test_batch_size=2 --sigma=0.01 --sigma_add=0.01 --epochs=50 --sub_epochs=10 --sigma_mod --save_sigma --batch_smooth=32 --N0=32 --N=256 --N_train=32 --alpha=0.001
+python certify.py --model=kitti --lr=0.005 --gamma=0.8 --batch_size=2 --test_batch_size=2 --sigma=0.01 --sigma_add=0.01 --epochs=50 --sub_epochs=10 --sigma_mod --save_sigma --batch_smooth=32 --N0=32 --N=256 --N_train=32 --alpha=0.001
 python create_clean_acc_data.py --model=mnist --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
 python create_clean_acc_data.py --model=fashion_mnist --batch_size=128 --test_batch_size=128 --sigma=0.1 --sigma_add=0.1 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
-python create_clean_acc_data.py --model=cifar10 --batch_size=16 --test_batch_size=16 --sigma=0.05 --sigma_add=0.05 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
-python create_clean_acc_data.py --model=cifar10_robust --batch_size=16 --test_batch_size=16 --sigma=0.05 --sigma_add=0.05 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
-python create_clean_acc_data.py --model=imagenet --batch_size=1 --test_batch_size=1 --sigma=0.05 --sigma_add=0.05 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
-python create_clean_acc_data.py --model=imagenet_robust --batch_size=1 --test_batch_size=1 --sigma=0.05 --sigma_add=0.05 --epochs=20 --batch_smooth=64 --N0=64 --N=512 --alpha=0.001
+python create_clean_acc_data.py --model=cifar10 --batch_size=16 --test_batch_size=16 --sigma=0.01 --sigma_add=0.01 --epochs=50 --batch_smooth=32 --N0=32 --N=256 --alpha=0.001
+python create_clean_acc_data.py --model=imagenet --batch_size=2 --test_batch_size=2 --sigma=0.01 --sigma_add=0.01 --epochs=50 --batch_smooth=32 --N0=32 --N=256 --alpha=0.001
+python create_clean_acc_data.py --model=kitti --batch_size=2 --test_batch_size=2 --sigma=0.01 --sigma_add=0.01 --epochs=50 --batch_smooth=32 --N0=32 --N=256 --alpha=0.001
 ```
 
 After this, to create the clean accuracy plots you will need to download the results from Tensorboard and set the correct filepaths in the "create_clean_acc_plot.py" file, as detailed in the "create_clean_acc_plot.py" subsection above. After that all you need to do is run the file as follows to achieve the same plot results:
@@ -138,15 +127,14 @@ python create_clean_acc_plot.py
 
 You will need to run this file multiple times with the diffect parts commented out in the marked CUSTOM section to get the plots for all datasets.
 
-For the certified accuracy plots, if you wish to use data from your own runs you will need to search for the "CUSTOM" comment marker in the "create_cert_acc_plot.py" file and change the filepaths to your own saved sigma vectors in the "models/sigmas" file. However, the specific sigma vectors we used are saved in this repository so there is no need for changes if you simply wish to use ours. To create these plots, run the following commands:
+For the certified accuracy plots, if you wish to use data from your own runs you will need to search for the "CUSTOM" comment marker in the "create_cert_acc_plot.py" file and change the filepaths to your own saved sigma vectors in the "models/sigmas" file. To create these plots, run the following commands:
 
 ```
 python create_cert_acc_plot.py --model=mnist --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001
 python create_cert_acc_plot.py --model=fashion_mnist --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001
 python create_cert_acc_plot.py --model=cifar10 --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001
-python create_cert_acc_plot.py --model=cifar10_robust --batch_smooth=100 --N0=100 --N=1000 --alpha=0.001
 python create_cert_acc_plot.py --model=imagenet --batch_smooth=50 --N0=100 --N=1000 --alpha=0.001
-python create_cert_acc_plot.py --model=imagenet_robust --batch_smooth=50 --N0=100 --N=1000 --alpha=0.001
+python create_cert_acc_plot.py --model=kitti --batch_smooth=50 --N0=100 --N=1000 --alpha=0.001
 ```
 
 The final plots can then be found in the "figures" folder, with the model option included in the filename to indicate which plot corresponds to which model.
